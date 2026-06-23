@@ -48,25 +48,25 @@ class BaseParameters:
     }
     
     __slots__ = (
-        "T",
-        "Tfin",
-        "time",
-        "L",
-        "lanes",
-        "C",
-        "tau",
-        "kappa",
-        "eta",
-        "rho_max",
-        "delta",
-        "rho_crit",
-        "a",
+        "_T",
+        "_Tfin",
+        "_time",
+        "_L",
+        "_lanes",
+        "_C",
+        "_tau",
+        "_kappa",
+        "_eta",
+        "_rho_max",
+        "_delta",
+        "_rho_crit",
+        "_a",
         
-        "v_free",
-        "rho_init",
-        "v_free_init",
-        "w_init",
-        "r",
+        "_v_free",
+        "_rho_init",
+        "_v_free_init",
+        "_w_init",
+        "_r_init",
         
         "_dynamic_params",
         "_param_name",
@@ -76,34 +76,34 @@ class BaseParameters:
                  C=None, tau=None, kappa=None, eta=None, rho_max=None,
                  delta=None, rho_crit=None, v_free=None, a=None,
                  
-                 rho_init=None, v_free_init=None, w_init=None, r=None
+                 rho_init=None, v_free_init=None, w_init=None, r_init=None
                  ):
-        self.T = BaseParameters.DEFAULTS["T"] if T is None else T
-        self.Tfin = BaseParameters.DEFAULTS["Tfin"] if Tfin is None else Tfin
-        self.time = np.arange(0, self.Tfin, self.T) if time is None else time
-        self.L = BaseParameters.DEFAULTS["L"] if L is None else L
-        self.lanes = BaseParameters.DEFAULTS["lanes"] if lanes is None else lanes
-        self.C = BaseParameters.DEFAULTS["C"] if C is None else C
-        self.tau = BaseParameters.DEFAULTS["tau"] if tau is None else tau
-        self.kappa = BaseParameters.DEFAULTS["kappa"] if kappa is None else kappa
-        self.eta = BaseParameters.DEFAULTS["eta"] if eta is None else eta
-        self.rho_max = BaseParameters.DEFAULTS["rho_max"] if rho_max is None else rho_max
-        self.delta = BaseParameters.DEFAULTS["delta"] if delta is None else delta
-        self.rho_crit = BaseParameters.DEFAULTS["rho_crit"] if rho_crit is None else rho_crit
-        self.v_free = BaseParameters.DEFAULTS["v_free"] if v_free is None else v_free
-        self.a = BaseParameters.DEFAULTS.get("a", None) if a is None else a
+        self._T = BaseParameters.DEFAULTS["T"] if T is None else T
+        self._Tfin = BaseParameters.DEFAULTS["Tfin"] if Tfin is None else Tfin
+        self._time = np.arange(0, self._Tfin, self._T) if time is None else time
+        self._L = BaseParameters.DEFAULTS["L"] if L is None else L
+        self._lanes = BaseParameters.DEFAULTS["lanes"] if lanes is None else lanes
+        self._C = BaseParameters.DEFAULTS["C"] if C is None else C
+        self._tau = BaseParameters.DEFAULTS["tau"] if tau is None else tau
+        self._kappa = BaseParameters.DEFAULTS["kappa"] if kappa is None else kappa
+        self._eta = BaseParameters.DEFAULTS["eta"] if eta is None else eta
+        self._rho_max = BaseParameters.DEFAULTS["rho_max"] if rho_max is None else rho_max
+        self._delta = BaseParameters.DEFAULTS["delta"] if delta is None else delta
+        self._rho_crit = BaseParameters.DEFAULTS["rho_crit"] if rho_crit is None else rho_crit
+        self._v_free = BaseParameters.DEFAULTS["v_free"] if v_free is None else v_free
+        self._a = BaseParameters.DEFAULTS.get("a", None) if a is None else a
         # initial conditions
-        self.rho_init = rho_init
-        self.v_free_init = v_free_init
-        self.w_init = w_init
-        self.r = r
+        self._rho_init = rho_init
+        self._v_free_init = v_free_init
+        self._w_init = w_init
+        self._r_init = r_init
         
         self._param_name = ""
         
         assert rho_init is not None, "Initial density (rho_init) must be provided"
         assert v_free_init is not None, "Initial free flow speed (v_free_init) must be provided"
         assert w_init is not None, "Initial congestion queue (w_init) must be provided"
-        assert r is not None, "Ramp Metering Rate (r) must be provided"
+        assert r_init is not None, "Initial ramp metering rate (r_init) must be provided"
 
     @property
     def T(self) -> float:
@@ -300,6 +300,9 @@ class BaseParameters:
     def rho_init(self, value):
         if value is None:
             raise ValueError("Initial density (rho_init) must be provided.")
+        if not hasattr(value, '__iter__'):
+            raise ValueError("Initial density (rho_init) must be an iterable (e.g., list or numpy array).")
+        
         self._rho_init = value
 
     @property
@@ -313,6 +316,8 @@ class BaseParameters:
     def v_free_init(self, value):
         if value is None:
             raise ValueError("Initial free flow speed (v_free_init) must be provided.")
+        if not hasattr(value, '__iter__'):
+            raise ValueError("Initial free flow speed (v_free_init) must be an iterable (e.g., list or numpy array).")
         self._v_free_init = value
 
     @property
@@ -326,20 +331,24 @@ class BaseParameters:
     def w_init(self, value):
         if value is None:
             raise ValueError("Initial congestion queue (w_init) must be provided.")
+        if not hasattr(value, '__iter__'):
+            raise ValueError("Initial congestion queue (w_init) must be an iterable (e.g., list or numpy array).")
         self._w_init = value
 
     @property
-    def r(self):
+    def r_init(self):
         '''
-        Ramp metering rate. Must be provided.
+        Initial ramp metering rate. Must be provided.
         '''
-        return self._r
+        return self._r_init
     
-    @r.setter
-    def r(self, value):
+    @r_init.setter
+    def r_init(self, value):
         if value is None:
-            raise ValueError("Ramp metering rate (r) must be provided.")
-        self._r = value 
+            raise ValueError("Initial ramp metering rate (r_init) must be provided.")
+        if not hasattr(value, '__iter__'):
+            raise ValueError("Initial ramp metering rate (r_init) must be an iterable (e.g., list or numpy array).")
+        self._r_init = value 
     
     # helper methods
 
@@ -429,26 +438,26 @@ class BaseParameters:
 class VslParameters(BaseParameters):
     
     DEFAULTS = {
-        "alpha_compliance": 0.5,
-        "A": 0.4,
-        "E": 1.5,
-        "V": 102,
-        "v_ctrl": cs.DM(102),
-        "segments_with_vsl": [],
+        "_alpha_compliance": 0.5,
+        "_A": 0.4,
+        "_E": 1.5,
+        "_V": 102,
+        "_v_ctrl": cs.DM(102),
+        "_segments_with_vsl": [],
 
-        "minimum_speed_limit": 60,
-        "maximum_speed_limit": 102,
+        "_minimum_speed_limit": 60,
+        "_maximum_speed_limit": 102,
     }
     
     __slots__ = (
-        "alpha_compliance",
-        "A",
-        "E",
-        "V",
-        "v_ctrl",
-        "segments_with_vsl",
-        "minimum_speed_limit",
-        "maximum_speed_limit",
+        "_alpha_compliance",
+        "_A",
+        "_E",
+        "_V",
+        "_v_ctrl",
+        "_segments_with_vsl",
+        "_minimum_speed_limit",
+        "_maximum_speed_limit",
     )
     
     def __init__(self, alpha_compliance=None, A=None, E=None, V=None, v_ctrl=None, segments_with_vsl=None, minimum_speed_limit=None, maximum_speed_limit=None, **kwargs):
