@@ -1,21 +1,70 @@
+from macroscopic.simulation.environment import Environment
+from macroscopic.simulation.parameters import BaseParameters
+from sym_metanet import Network
+
+# from macroscopic.simulation.demands import Demands
+from macroscopic.solvers.base import BaseMacroscopicSolver
+
+from sym_metanet import (
+    Destination,
+    Link,
+    MeteredOnRamp,
+    Network,
+    Node,
+)
+
+import casadi as cs
+import numpy as np
+
+def define_network(parameters: BaseParameters, L1_klass: Link, **kwargs) -> Network:
+    params = parameters
+
+    N1 = Node(name="N1")
+    N2 = Node(name="N2")
+    N3 = Node(name="N3")
+    
+    O1 = MeteredOnRamp[cs.SX](params.C[0], name="O1")
+    O2 = MeteredOnRamp[cs.SX](params.C[1], name="O2")
+    D1 = Destination[cs.SX](name="D1")
+
+    L1 = L1_klass(
+        nb_segments=4,
+        lanes=params.lanes,
+        length=params.L,
+        maximum_density=params.rho_max,
+        critical_density=params.rho_crit,
+        free_flow_velocity=params.v_free,
+        name="L1",
+        **kwargs
+    )
+    
+    L2 = Link[cs.SX](
+        nb_segments=2, 
+        lanes=params.lanes, 
+        length=params.L, 
+        maximum_density=params.rho_max, 
+        critical_density=params.rho_crit, 
+        free_flow_velocity=params.v_free, 
+        a=params.a,
+        name="L2")
+                
+    return (
+        Network(name="A1")
+        .add_path(origin=O1, path=(N1, L1, N2, L2, N3), destination=D1)
+        .add_origin(O2, N2)
+    )
 
 
-# macroscopic 
-
-# parameters = BaseParameters()
-# network = Network()
-# demands = Demands()
-
-# environment = Environment(parameters, network, demands)
-# solver = Solver(environment) 
+def create_demands(time: np.ndarray) -> np.ndarray:
+    return np.stack(
+        (
+            np.interp(time, (2.0, 2.25), (3500, 1000)),
+            np.interp(time, (0.0, 0.15, 0.35, 0.5), (500, 1500, 1500, 500)),
+        )
+    )
 
 if __name__ == "__main__":
-    from macroscopic.simulation.environment import Environment
-    from macroscopic.simulation.parameters import BaseParameters
-    from sym_metanet import Network
 
-    # from macroscopic.simulation.demands import Demands
-    from macroscopic.solvers.base import BaseMacroscopicSolver
 
     initial_conditions = {
         "rho_init": [10, 10, 10, 10, 10],
@@ -23,15 +72,17 @@ if __name__ == "__main__":
         "w_init": [0, 0],
         "r_init": [0],
     }
-
+    parameters = BaseParameters(**initial_conditions)
+    network = define_network(parameters, Link[cs.SX], a=0.5)
     solver = BaseMacroscopicSolver(
         environment=Environment(
-            parameters=BaseParameters(**initial_conditions),
-            network=Network(),
-            demands=None,  # Replace with actual demands if available
+            parameters=parameters,
+            network=network,
+            demands=create_demands(parameters.time).T,
         ),
         Np=10,
         Nc=5,
         M=1,
+        function_compactness=2
     )
     solver.setup()

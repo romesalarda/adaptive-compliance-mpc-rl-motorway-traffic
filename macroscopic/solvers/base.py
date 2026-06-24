@@ -80,9 +80,9 @@ class BaseMacroscopicSolver:
         self.number_of_origins = len(self.environment.network.origins)
 
         self.kwargs = kwargs  # Store any additional keyword arguments for future use
-
         self.queue_upper_bound = kwargs.get("queue_upper_bound", None)  # Upper bound for the congestion queue, can be adjusted as needed 
-
+        self.function_compactness = kwargs.get("function_compactness", 1)  # Compactness level for the function representation, can be adjusted as needed
+    
     @property
     def Np(self):
         '''
@@ -203,18 +203,23 @@ class BaseMacroscopicSolver:
 
     #### mpc methods
 
-    def get_function(self, more_out: bool = True, compact: int = 1):
+    def get_function(self, more_out: bool = True, compact: int = None):
         '''
         Returns a function that can be used to evaluate the macroscopic traffic flow model.
 
         Args:
             more_out (bool, optional): Whether to include additional outputs in the function. Defaults to True.
-            compact (int, optional): Whether to return a compact version of the function. Defaults to 1.
+            compact (int, optional): Whether to return a compact version of the function. Defaults to None.
 
         Returns:
             function: A function that is used to represent the dynamics of the macroscopic traffic flow model.
 
         '''
+        if self.function_compactness is not None and compact is None:
+            compact = self.function_compactness
+
+        self.environment.check()  
+
         return smn.engine.to_function(
             net=self.environment.network,
             more_out=more_out,
@@ -227,7 +232,7 @@ class BaseMacroscopicSolver:
         '''
         override this method to perform any necessary pre-initialization steps for the MPC solver.
         '''
-        pass
+        self.environment.ready(initial_conditions=self.kwargs.get("initial_conditions", {}))
 
     def init_mpc(self):
         '''
@@ -238,21 +243,20 @@ class BaseMacroscopicSolver:
         Returns:
             Mpc: An instance of the Model Predictive Control (MPC) solver.      
         '''
-        LOGGER.info("Initializing the MPC solver...")
+        self.environment.check()  # Ensure the environment is ready before initializing the MPC solver
+        
         self.MPC = Mpc[cs.SX](
             nlp=Nlp[cs.SX](sym_type="SX"),
             prediction_horizon=self.Np * self.M,
             control_horizon=self.Nc * self.M,
             input_spacing=self.M,
         )
-        LOGGER.info("MPC solver initialized successfully. ✓")
         return self.MPC
 
     def init_base_states(self):
         '''
         Initialize the base states for the MPC solver.
         '''
-        LOGGER.info("Initializing base states for the MPC solver...")
         n_seg = self.number_of_segments
         kwargs = self.kwargs
 
@@ -262,22 +266,25 @@ class BaseMacroscopicSolver:
         if self.queue_upper_bound is not None:
             assert len(self.queue_upper_bound) == self.number_of_origins, "Queue upper bound must match the number of origins."
         self.w, _ = self.MPC.state("w", self.number_of_origins, lb=kwargs.get("w_lb", 0), ub=kwargs.get("w_ub", self.queue_upper_bound))
-        LOGGER.info("Base states initialized successfully for the MPC solver. ✓")
 
     def init_control_states(self):
         '''
-        Initialize the control states for the MPC solver.
+        Initialize the control states for the MPC solver. Base class implementation initializes the ramp metering rate control state. Subclasses can override this method to add additional control states as needed.
         '''
-
         self.r, _ = self.MPC.action("r", lb=0, ub=1)
         self.r_last = self.MPC.parameter("r_last", (self.r.size1(), 1))
 
 
     def init_constraints(self):
+        '''
+        Initialize the constraints for the MPC solver. This method sets up the constraints that govern the macroscopic traffic flow model, ensuring that the optimization problem adheres to the physical and operational limits of the system.
+        '''
         pass
     
     def init_objective(self):
-        
+        '''
+        Initialize the objective function for the MPC solver. This method sets up the objective function that will be minimized during the optimization process. The objective function is defined based on the traffic density, congestion queue, and ramp metering rates, with optional weighting for the ramp metering rates.
+        '''
         self.MPC.minimize(
             self.environment.parameters.T * cs.sum2(cs.sum1(self.rho * self.environment.parameters.L * self.environment.parameters.lanes) + cs.sum1(self.w))
             + self.kwargs.get("ramp_weight", 0.4) * cs.sumsqr(cs.diff(cs.horzcat(self.r_last, self.r)))
@@ -287,20 +294,16 @@ class BaseMacroscopicSolver:
         '''
         Initialize the disturbances for the MPC solver. This method sets up the disturbances that affect the macroscopic traffic flow model, such as external inputs or environmental factors. The disturbances are defined based on the number of origins in the network.
         '''
-        
-        return self.MPC.disturbance("d", self.number_of_origins)
+        self.MPC.disturbance("d", self.number_of_origins)
     
     def init_non_linear_dynamics(self):
         '''
         Initialize the non-linear dynamics for the MPC solver. This method sets up the non-linear dynamics
         that govern the macroscopic traffic flow model. It retrieves the function representing the dynamics and configures the MPC solver to use this function for its non-linear dynamics.
         '''
-        LOGGER.info("Initializing non-linear dynamics for the MPC solver...")
         F = self.get_function()
         
         self.MPC.set_nonlinear_dynamics(lambda x, u, d: F(x, u, d)[0])
-
-        LOGGER.info("Non-linear dynamics initialized successfully for the MPC solver. ✓")
     
     def post_init_mpc(self):
         pass
@@ -309,32 +312,55 @@ class BaseMacroscopicSolver:
         '''
         Initialize the solver for the MPC problem. This method sets up the solver that will be used to solve the optimization problem defined by the MPC formulation. The solver is configured with appropriate settings and options for efficient computation.
         '''
-        LOGGER.info(f"Initializing the solver '{solver}' for the MPC problem...")
         if opts is None:
             opts = self.DEFAULT_SOLVER_OPTIONS.get(solver, {})
 
         self.MPC.init_solver(solver=solver, opts=opts)
 
-        LOGGER.info(f"Solver '{solver}' initialized successfully for the MPC problem. ✓")
 
-    def setup(self):
+    def setup(self, suppress=False):
         """
         Setup the macroscopic solver by initializing the MPC solver and other necessary components.
         """
         LOGGER.info("Setting up the macroscopic solver...")
-
-        self.pre_init_mpc()
-        self.init_mpc()
-        self.init_base_states()
-        self.init_control_states()
-        self.init_constraints()
-        self.init_disturbances()
-        self.init_objective()
-        self.init_non_linear_dynamics()
-        self.init_solver()
-        self.post_init_mpc()
-
+        try:
+            LOGGER.info("Starting the setup process for the macroscopic solver...")
+            self.pre_init_mpc()
+            LOGGER.info("\n1. Pre-initialization of the macroscopic solver completed successfully. ✓")
+            LOGGER.info("Proceeding with the initialization of the MPC solver and related components...")
+            self.init_mpc()
+            LOGGER.info("MPC solver initialization completed successfully. ✓")
+            LOGGER.info("\n2. Proceeding with the initialization of base states, control states, constraints, disturbances, objective function, non-linear dynamics, and solver...")
+            self.init_base_states()
+            LOGGER.info("Base states initialization completed successfully. ✓")
+            LOGGER.info("\n3. Proceeding with the initialization of control states...")
+            self.init_control_states()
+            LOGGER.info("Control states initialization completed successfully. ✓")
+            LOGGER.info("\n3. Proceeding with the initialization of constraints...")
+            self.init_constraints()
+            LOGGER.info("Constraints initialization completed successfully. ✓")
+            LOGGER.info("\n4. Proceeding with the initialization of disturbances...")
+            self.init_disturbances()
+            LOGGER.info("Disturbances initialization completed successfully. ✓")
+            LOGGER.info("\n5. Proceeding with the initialization of the objective function...")
+            self.init_objective()
+            LOGGER.info("Objective function initialization completed successfully. ✓")
+            LOGGER.info("\n6. Proceeding with the initialization of non-linear dynamics...")
+            self.init_non_linear_dynamics()
+            LOGGER.info("Non-linear dynamics initialization completed successfully. ✓")
+            LOGGER.info("\n7. Proceeding with the initialization of the solver...")
+            self.init_solver()
+            LOGGER.info("Solver initialization completed successfully. ✓")
+            LOGGER.info("All components of the macroscopic solver have been initialized successfully. ✓")
+            self.post_init_mpc()
+            LOGGER.info("Post-initialization of the macroscopic solver completed successfully. ✓")
+        except Exception as e:
+            LOGGER.error(f"Solver Setup Failed: An error occurred during the setup of the macroscopic solver: {e}")
+            if not suppress:
+                raise e
+            return False
         LOGGER.info("Macroscopic solver setup complete.")
+        return True
 
     def pre_solve(self):
         pass
