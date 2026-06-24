@@ -5,7 +5,7 @@ from sym_metanet import Network
 from dataclasses import asdict
 
 # from macroscopic.simulation.demands import Demands
-from macroscopic.solvers.base import BaseMPCSolver, MPCSimulation
+from macroscopic.solvers.ramp import MpcRMSimulation
 
 from sym_metanet import (
     Destination,
@@ -87,7 +87,7 @@ if __name__ == "__main__":
     }
     parameters = BaseParameters(**initial_conditions)
     network = define_network(parameters, Link[cs.SX], a=0.5)
-    solver = MPCSimulation(
+    solver = MpcRMSimulation(
         environment=Environment(
             parameters=parameters,
             network=network,

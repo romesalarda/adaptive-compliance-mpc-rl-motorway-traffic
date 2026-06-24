@@ -337,19 +337,19 @@ class BaseMPCSolver:
             LOGGER.info("\n3. Proceeding with the initialization of control states...")
             self.init_control_states()
             LOGGER.info("Control states initialization completed successfully. ✓")
-            LOGGER.info("\n3. Proceeding with the initialization of constraints...")
+            LOGGER.info("\n4. Proceeding with the initialization of constraints...")
             self.init_constraints()
             LOGGER.info("Constraints initialization completed successfully. ✓")
-            LOGGER.info("\n4. Proceeding with the initialization of disturbances...")
+            LOGGER.info("\n5. Proceeding with the initialization of disturbances...")
             self.init_disturbances()
             LOGGER.info("Disturbances initialization completed successfully. ✓")
-            LOGGER.info("\n5. Proceeding with the initialization of the objective function...")
+            LOGGER.info("\n6. Proceeding with the initialization of the objective function...")
             self.init_objective()
             LOGGER.info("Objective function initialization completed successfully. ✓")
-            LOGGER.info("\n6. Proceeding with the initialization of non-linear dynamics...")
+            LOGGER.info("\n7. Proceeding with the initialization of non-linear dynamics...")
             self.init_non_linear_dynamics()
             LOGGER.info("Non-linear dynamics initialization completed successfully. ✓")
-            LOGGER.info("\n7. Proceeding with the initialization of the solver...")
+            LOGGER.info("\n8. Proceeding with the initialization of the solver...")
             self.init_solver()
             LOGGER.info("Solver initialization completed successfully. ✓")
             LOGGER.info("All components of the macroscopic solver have been initialized successfully. ✓")
@@ -370,20 +370,11 @@ class BaseMPCSolver:
         """
         if self.MPC is None:
             raise RuntimeError("MPC solver is not initialized. Call the 'setup' method first.")
-    
-
-class MPCSimulation(BaseMPCSolver):
-    """
-    A class for running simulations using the Model Predictive Control (MPC) solver.
-    Inherits from BaseMPCSolver and provides methods for simulating traffic flow dynamics over time.
-    """
-    def __init__(self, environment: Environment, Np=None, Nc=None, M=None, **kwargs):
-        super().__init__(environment, Np, Nc, M, **kwargs)
-
+        
     def pre_simulate(self):
         self.check()  # Ensure the solver is properly set up before starting the simulation
         LOGGER.info("Solver setup verified. Proceeding with pre-simulation steps...")
-
+    
     def simulate(self, suppress=True):
         '''
         Simulate the traffic flow dynamics over time using the MPC solver. This method orchestrates the entire simulation process, including pre-simulation steps, the main simulation loop, and post-simulation steps. It handles exceptions and logs relevant information about the simulation progress.
@@ -407,54 +398,53 @@ class MPCSimulation(BaseMPCSolver):
             LOGGER.error(f"Simulation Failed: An error occurred during the simulation process: {e}")
             if not suppress:
                 raise e
-
-    def _simulate(self):
-        '''
-        Simulate the traffic flow dynamics over time using the MPC solver. This method iteratively solves the MPC problem at each time step, updates the state variables, and stores the simulation results.
-        '''
-        sol_prev = None
-        F = self.get_function()
-
-        rho = self.environment.parameters.rho_init
-        v = self.environment.parameters.v_free_init
-        w = self.environment.parameters.w_init
-
-        r_last = cs.DM.ones(self.r.size1(), 1)
-
-        for k in range(self.environment.demands.shape[0]):
-
-            d_hat = self.environment.demands[k : k + self.Np * self.M, :]
-            if d_hat.shape[0] < self.Np * self.M:
-                d_hat = np.pad(d_hat, ((0, self.Np * self.M - d_hat.shape[0]), (0, 0)), "edge")
-
-            if k % self.M == 0:
-                sol = self.MPC.solve(
-                    pars={
-                        "rho_0": rho,
-                        "v_0": v,
-                        "w_0": w,
-                        "d": d_hat.T,
-                        "r_last": r_last,
-                    },
-                    vals0=sol_prev,
-                )
-                sol_prev = sol.vals
-                r_last = sol.vals["r"][0]
-
-            x_next, q_all = F(cs.vertcat(rho, v, w), r_last, self.environment.demands[k, :])
-            rho, v, w = cs.vertsplit(x_next, (0, self.number_of_segments, 2 * self.number_of_segments, 2 * self.number_of_segments + self.number_of_origins))
-            q, q_on = cs.vertsplit(q_all, (0, self.number_of_segments, self.number_of_segments + self.number_of_origins))
             
-            self.simulation_results.rho.append(rho)
-            self.simulation_results.v.append(v)
-            self.simulation_results.w.append(w)
-            self.simulation_results.q.append(q)
-            self.simulation_results.q_on.append(q_on)
-            self.simulation_results.r.append(r_last)
+    def _simulate(self):    
+        '''
+        Simulate the traffic flow dynamics over time using the MPC solver. This method is intended to be overridden by subclasses to implement specific simulation logic. It should contain the main simulation loop that iteratively solves the MPC problem, updates the state variables, and stores the simulation results.
+        '''
 
-            if k % 100 == 0:
-                LOGGER.info(f"step {k} of {self.environment.demands.shape[0]}")
+        raise NotImplementedError("The '_simulate' method must be implemented in subclasses of BaseMPCSolver.")
+    
+    def store_step(self, rho, v, w, q, q_on, r_last):
+        '''
+        Store the simulation results for a single time step. This method appends the current state variables and outputs to the simulation results object, allowing for later analysis and visualization of the traffic flow dynamics.
+        '''
+        self.simulation_results.rho.append(rho)
+        self.simulation_results.v.append(v)
+        self.simulation_results.w.append(w)
+        self.simulation_results.q.append(q)
+        self.simulation_results.q_on.append(q_on)
+        self.simulation_results.r.append(r_last)
 
+    def calculate_demands_over_horizon(self, k):
+        '''
+        Calculate the predicted demand over the prediction horizon. This method extracts the demand values for the current time step and pads them if necessary to match the prediction horizon.
+        '''
+        d_hat = self.environment.demands[k : k + self.Np * self.M, :]
+        if d_hat.shape[0] < self.Np * self.M:
+            d_hat = np.pad(d_hat, ((0, self.Np * self.M - d_hat.shape[0]), (0, 0)), "edge")
+        return d_hat
+    
+    def get_next_states(self, rho, v, w, r_last, k, F):
+        '''
+        Calculate the next states of the traffic flow variables given the current states, ramp metering rates, and demands.
+        Args:
+            rho (cs.SX): Current traffic density state.
+            v (cs.SX): Current traffic speed state.
+            w (cs.SX): Current congestion queue state.
+            r_last (cs.SX): Last ramp metering rate state.
+            k (int): Current time step index.
+            F (function): Function representing the dynamics of the macroscopic traffic flow model.
+        Returns:
+            tuple: Next states of traffic density, speed, congestion queue, and flow variables.
+        '''
+
+        x_next, q_all = F(cs.vertcat(rho, v, w), r_last, self.environment.demands[k, :])
+        rho, v, w = cs.vertsplit(x_next, (0, self.number_of_segments, 2 * self.number_of_segments, 2 * self.number_of_segments + self.number_of_origins))
+        q, q_on = cs.vertsplit(q_all, (0, self.number_of_segments, self.number_of_segments + self.number_of_origins))
+        return rho, v, w, q, q_on
+    
     def post_simulate(self):
         '''
         Post-process the simulation results after the simulation is complete. This method can be used to compute additional statistics, generate plots, or perform any other necessary post-simulation analysis.
@@ -482,3 +472,4 @@ class MPCSimulation(BaseMPCSolver):
         self.overview_results.excess_congestion_time = T * sum(np.maximum(0, rho - rho_crit).sum() for rho in RHO)
         self.overview_results.total_speed_variance = T * sum(((v - v_free) ** 2).sum() for v in V)
 
+        return self.overview_results
