@@ -1,10 +1,12 @@
 import time
 import sym_metanet as smn
 
-from typing import Any, Optional, Sequence, TypeVar, Union, Literal
+from typing import TypeVar
 from csnlp.wrappers import Mpc
 from csnlp import Nlp
+
 import casadi as cs
+import numpy as np
 
 SymType = TypeVar("SymType", cs.SX, cs.MX)
 
@@ -16,12 +18,10 @@ from macroscopic.simulation.statistics import (
     MacroRunSimulationResults
 )
 from macroscopic.logger import LOGGER
-
-
-
-class BaseMacroscopicSolver:
+class BaseMPCSolver:
     """
-    Base class for macroscopic solvers.
+    Base class for macroscopic solvers. Sets up the environment, initializes the MPC solver, 
+    and provides methods for solving the macroscopic traffic flow problem.
     """
 
     DEFAULT_SOLVER_OPTIONS = {
@@ -260,12 +260,13 @@ class BaseMacroscopicSolver:
         n_seg = self.number_of_segments
         kwargs = self.kwargs
 
-        self.rho, _ = self.MPC.state("rho", n_seg, lb=kwargs.get("rho_lb", 0), ub=kwargs.get("rho_ub", 1e6))
-        self.v, _ = self.MPC.state("v", n_seg, lb=kwargs.get("v_lb", 0), ub=kwargs.get("v_ub", 1e6))
+        self.rho, _ = self.MPC.state("rho", self.number_of_segments, lb=0)
+        self.v, _ = self.MPC.state("v", self.number_of_segments, lb=0)
 
         if self.queue_upper_bound is not None:
             assert len(self.queue_upper_bound) == self.number_of_origins, "Queue upper bound must match the number of origins."
-        self.w, _ = self.MPC.state("w", self.number_of_origins, lb=kwargs.get("w_lb", 0), ub=kwargs.get("w_ub", self.queue_upper_bound))
+        
+        self.w, _ = self.MPC.state("w", self.number_of_origins, lb=0, ub=[[np.inf], [100]])
 
     def init_control_states(self):
         '''
@@ -361,24 +362,123 @@ class BaseMacroscopicSolver:
             return False
         LOGGER.info("Macroscopic solver setup complete.")
         return True
-
-    def pre_solve(self):
-        pass
-
-    def solve(self):
+    
+    def check(self):
         """
-        Solve the macroscopic traffic flow problem.
-        This method should be implemented by subclasses.
+        Check if the macroscopic solver is properly set up and ready for simulation.
+        Raises an error if the solver is not ready.
         """
-        self.pre_solve()
-        self._solve()
-        self.post_solve()
+        if self.MPC is None:
+            raise RuntimeError("MPC solver is not initialized. Call the 'setup' method first.")
+    
 
-    def _solve(self):
-        
+class MPCSimulation(BaseMPCSolver):
+    """
+    A class for running simulations using the Model Predictive Control (MPC) solver.
+    Inherits from BaseMPCSolver and provides methods for simulating traffic flow dynamics over time.
+    """
+    def __init__(self, environment: Environment, Np=None, Nc=None, M=None, **kwargs):
+        super().__init__(environment, Np, Nc, M, **kwargs)
+
+    def pre_simulate(self):
+        self.check()  # Ensure the solver is properly set up before starting the simulation
+        LOGGER.info("Solver setup verified. Proceeding with pre-simulation steps...")
+
+    def simulate(self, suppress=True):
+        '''
+        Simulate the traffic flow dynamics over time using the MPC solver. This method orchestrates the entire simulation process, including pre-simulation steps, the main simulation loop, and post-simulation steps. It handles exceptions and logs relevant information about the simulation progress.
+        '''
+        try:
+                
+            LOGGER.info("\nStarting the simulation process...")
+            self.pre_simulate()
+            LOGGER.info("Pre-simulation steps completed successfully. ✓")
+            LOGGER.info("Proceeding with the simulation of traffic flow dynamics over time...")
+            self._simulate()
+            LOGGER.info("Simulation of traffic flow dynamics completed successfully. ✓")
+            LOGGER.info("Proceeding with post-simulation steps...")
+            self.post_simulate()
+            LOGGER.info("Post-simulation steps completed successfully. ✓")
+
+        except KeyboardInterrupt:
+            LOGGER.warning("Simulation interrupted by user.")
+
+        except Exception as e:
+            LOGGER.error(f"Simulation Failed: An error occurred during the simulation process: {e}")
+            if not suppress:
+                raise e
+
+    def _simulate(self):
+        '''
+        Simulate the traffic flow dynamics over time using the MPC solver. This method iteratively solves the MPC problem at each time step, updates the state variables, and stores the simulation results.
+        '''
+        sol_prev = None
+        F = self.get_function()
+
         rho = self.environment.parameters.rho_init
         v = self.environment.parameters.v_free_init
-        w  = self.environment.parameters.w_init        
-    
-    def post_solve(self):
-        pass
+        w = self.environment.parameters.w_init
+
+        r_last = cs.DM.ones(self.r.size1(), 1)
+
+        for k in range(self.environment.demands.shape[0]):
+
+            d_hat = self.environment.demands[k : k + self.Np * self.M, :]
+            if d_hat.shape[0] < self.Np * self.M:
+                d_hat = np.pad(d_hat, ((0, self.Np * self.M - d_hat.shape[0]), (0, 0)), "edge")
+
+            if k % self.M == 0:
+                sol = self.MPC.solve(
+                    pars={
+                        "rho_0": rho,
+                        "v_0": v,
+                        "w_0": w,
+                        "d": d_hat.T,
+                        "r_last": r_last,
+                    },
+                    vals0=sol_prev,
+                )
+                sol_prev = sol.vals
+                r_last = sol.vals["r"][0]
+
+            x_next, q_all = F(cs.vertcat(rho, v, w), r_last, self.environment.demands[k, :])
+            rho, v, w = cs.vertsplit(x_next, (0, self.number_of_segments, 2 * self.number_of_segments, 2 * self.number_of_segments + self.number_of_origins))
+            q, q_on = cs.vertsplit(q_all, (0, self.number_of_segments, self.number_of_segments + self.number_of_origins))
+            
+            self.simulation_results.rho.append(rho)
+            self.simulation_results.v.append(v)
+            self.simulation_results.w.append(w)
+            self.simulation_results.q.append(q)
+            self.simulation_results.q_on.append(q_on)
+            self.simulation_results.r.append(r_last)
+
+            if k % 100 == 0:
+                LOGGER.info(f"step {k} of {self.environment.demands.shape[0]}")
+
+    def post_simulate(self):
+        '''
+        Post-process the simulation results after the simulation is complete. This method can be used to compute additional statistics, generate plots, or perform any other necessary post-simulation analysis.
+        '''
+        RHO, V, W, Q, Q_o, R = (np.squeeze(o) for o in (
+            self.simulation_results.rho, 
+            self.simulation_results.v, 
+            self.simulation_results.w,
+            self.simulation_results.q, 
+            self.simulation_results.q_on, 
+            self.simulation_results.r
+            )
+        ) 
+        parameters = self.environment.parameters
+        T = parameters.T
+        L = parameters.L
+        lanes = parameters.lanes
+        rho_crit = parameters.rho_crit
+        v_free = parameters.v_free
+
+        self.overview_results.total_time_spent = T * sum((rho * L * lanes).sum() + w.sum() for rho, w in zip(RHO, W))
+        self.overview_results.total_wait_time = T * sum(w.sum() for w in W)
+        self.overview_results.total_distance_traveled = T * L * sum(q.sum() for q in Q)
+        self.overview_results.congestion_time = T * sum(1 for rho in RHO if rho.sum() > rho_crit * RHO.shape[1])
+        self.overview_results.excess_congestion_time = T * sum(np.maximum(0, rho - rho_crit).sum() for rho in RHO)
+        self.overview_results.total_speed_variance = T * sum(((v - v_free) ** 2).sum() for v in V)
+

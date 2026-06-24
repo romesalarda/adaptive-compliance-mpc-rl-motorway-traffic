@@ -2,8 +2,10 @@ from macroscopic.simulation.environment import Environment
 from macroscopic.simulation.parameters import BaseParameters
 from sym_metanet import Network
 
+from dataclasses import asdict
+
 # from macroscopic.simulation.demands import Demands
-from macroscopic.solvers.base import BaseMacroscopicSolver
+from macroscopic.solvers.base import BaseMPCSolver, MPCSimulation
 
 from sym_metanet import (
     Destination,
@@ -57,32 +59,46 @@ def define_network(parameters: BaseParameters, L1_klass: Link, **kwargs) -> Netw
 
 def create_demands(time: np.ndarray) -> np.ndarray:
     return np.stack(
-        (
-            np.interp(time, (2.0, 2.25), (3500, 1000)),
-            np.interp(time, (0.0, 0.15, 0.35, 0.5), (500, 1500, 1500, 500)),
+            (
+                # Mainline demand
+                np.interp(
+                    time,
+                    (0.0, 0.5, 1.0, 1.5, 2.5),
+                    (2800, 3200, 4000, 4200, 4200)
+                ),
+                # On-ramp demand
+                np.interp(
+                    time,
+                    (0.0, 0.5, 1.0, 1.5, 2.5),
+                    (200, 300, 300, 300, 200)
+
+                ),
+            )
         )
-    )
 
 if __name__ == "__main__":
 
 
     initial_conditions = {
-        "rho_init": [10, 10, 10, 10, 10],
-        "v_free_init": [102, 102, 102, 102, 102],
+        "rho_init": [10, 10, 10, 10, 10, 10],
+        "v_free_init": [102, 102, 102, 102, 102, 102],
         "w_init": [0, 0],
         "r_init": [0],
     }
     parameters = BaseParameters(**initial_conditions)
     network = define_network(parameters, Link[cs.SX], a=0.5)
-    solver = BaseMacroscopicSolver(
+    solver = MPCSimulation(
         environment=Environment(
             parameters=parameters,
             network=network,
             demands=create_demands(parameters.time).T,
         ),
-        Np=10,
-        Nc=5,
-        M=1,
+        Np=7,
+        Nc=3,
+        M=6,
         function_compactness=2
     )
     solver.setup()
+    solver.simulate()
+
+    print(asdict(solver.overview_results))

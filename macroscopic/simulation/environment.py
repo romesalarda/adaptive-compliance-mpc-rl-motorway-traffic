@@ -29,7 +29,9 @@ class Environment:
         self.is_ready = False
     
     def ready(self, initial_conditions: dict):
-
+        '''
+        Ready the environment for simulation by resetting it and setting up the network with the provided initial conditions.
+        '''
         self.reset() 
         
         engines.use("casadi", sym_type='SX')
@@ -48,5 +50,8 @@ class Environment:
         self.is_ready = True  # Set the environment as ready after successful setup
     
     def check(self):
+        '''
+        Checks if the environment is ready for simulation. Raises an error if not ready.
+        '''
         if not self.is_ready:
-            raise RuntimeError("Environment is not ready. Call the 'ready' method first.")
+            raise RuntimeError("Environment is not ready. Call the 'ready' method first.")  
