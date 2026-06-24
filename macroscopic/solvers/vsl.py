@@ -1,0 +1,153 @@
+from macroscopic.simulation.environment import Environment
+from macroscopic.simulation.parameters import VslParameters
+from macroscopic.solvers.base import BaseMPCSolver
+
+
+from typing import TypeVar
+
+import casadi as cs
+
+SymType = TypeVar("SymType", cs.SX, cs.MX)
+
+from macroscopic.simulation.environment import Environment
+from macroscopic.logger import LOGGER
+
+class MpcVSLSimulation(BaseMPCSolver):
+    """
+    A class for running simulations using the Model Predictive Control (MPC) solver.
+    Inherits from BaseMPCSolver and provides methods for simulating traffic flow dynamics over time with Variable Speed Limits (VSL).
+    """
+
+    def __init__(self, environment: Environment, Np=None, Nc=None, M=None, **kwargs):
+        super().__init__(environment, Np, Nc, M, **kwargs)
+        self._v_ctrl_last = None  # Initialize the last speed limit control variable
+        self._v_ctrl = None  # Initialize the speed limit control variable
+
+    @property
+    def v_ctrl_last(self):
+        '''
+        Last speed limit control variable from the previous MPC iteration.
+        '''
+        return self._v_ctrl_last    
+    
+    @v_ctrl_last.setter
+    def v_ctrl_last(self, value):
+        self._v_ctrl_last = value
+    
+    @property
+    def v_ctrl(self):
+        '''
+        Current speed limit control variable for the ongoing MPC iteration.
+        '''
+        return self._v_ctrl
+    
+    @v_ctrl.setter
+    def v_ctrl(self, value):
+        self._v_ctrl = value
+
+    def init_control_states(self):
+
+        parameters: VslParameters = self.environment.parameters
+        
+        self.v_ctrl, _ = self.MPC.action(
+            "v_ctrl", len(parameters.segments_with_vsl),
+            lb=parameters.minimum_speed_limit, 
+            ub=parameters.maximum_speed_limit
+        ) 
+
+        self.r, _ = self.MPC.action("r", self.number_of_origins, lb=1, ub=1) # dummy ramp metering control to keep function signature
+        
+        self.v_ctrl_last = self.MPC.parameter("v_ctrl_last", (self.v_ctrl.size1(), 1))
+
+    def init_constraints(self):
+
+        delta_v_max = 10  # Max drop allowed
+        delta_v_increase = 0  # Change to 0 to allow flat profiles
+        max_temporal_change = 10 # i.e. between time steps
+        mpc = self.MPC
+        v_ctrl = self.v_ctrl
+        v_ctrl_last = self.v_ctrl_last
+
+        for i in range(v_ctrl.size1()):
+            mpc.constraint(f"temporal_pos_{i}_0", v_ctrl_last[i] - v_ctrl[i, 0], "<=", max_temporal_change, soft=False)
+            mpc.constraint(f"temporal_neg_{i}_0", v_ctrl[i, 0] - v_ctrl_last[i], "<=", max_temporal_change, soft=False)
+            
+            for k in range(v_ctrl.size2() - 1):
+                mpc.constraint(f"temporal_pos_{i}_{k+1}", v_ctrl[i, k] - v_ctrl[i, k+1], "<=", max_temporal_change, soft=False)
+                mpc.constraint(f"temporal_neg_{i}_{k+1}", v_ctrl[i, k+1] - v_ctrl[i, k], "<=", max_temporal_change, soft=False)
+
+        for k in range(v_ctrl.size2()): # i.e. beteen segments at each time step (spatial smoothness)
+            for i in range(v_ctrl.size1() - 1): 
+                mpc.constraint(
+                    f"vsl_downstream_lower_{i}_{k}",
+                    v_ctrl[i + 1, k] - v_ctrl[i, k],  
+                    "<=",
+                    delta_v_increase,
+                    soft=False
+                )
+                
+                mpc.constraint(
+                    f"vsl_max_drop_{i}_{k}",
+                    v_ctrl[i, k] - v_ctrl[i + 1, k],
+                    "<=",
+                    delta_v_max,
+                    soft=False
+                )
+
+    def init_objective(self):
+
+        parameters: VslParameters = self.environment.parameters
+        temporal_smoothness_weight = 100
+        temporal_smoothness = temporal_smoothness_weight * cs.sumsqr(cs.diff(cs.horzcat(self.v_ctrl_last, self.v_ctrl), 1, 1) / parameters.v_free)
+
+        # TTT = sum of all segment densities + queue lengths, multiplied by T
+
+        self.MPC.minimize(
+            parameters.T * cs.sum2(cs.sum1(self.rho * parameters.L * parameters.lanes) + cs.sum1(self.w))
+            + temporal_smoothness
+        )
+
+    def get_next_states(self, rho, v, w, v_ctrl_last, r_last, k, F):
+
+        x_next, q_all = F(cs.vertcat(rho, v, w), cs.vertcat(v_ctrl_last, r_last), self.environment.demands[k, :])
+        rho, v, w = cs.vertsplit(x_next, (0, self.number_of_segments, 2 * self.number_of_segments, 2 * self.number_of_segments + self.number_of_origins))
+        q, q_on = cs.vertsplit(q_all, (0, self.number_of_segments, self.number_of_segments + self.number_of_origins))
+        return rho, v, w, q, q_on
+
+    def _simulate(self):
+
+        sol_prev = None
+        F = self.get_function()
+
+        rho = self.environment.parameters.rho_init
+        v = self.environment.parameters.v_free_init
+        w = self.environment.parameters.w_init
+        parameters: VslParameters = self.environment.parameters
+
+        v_ctrl_last = parameters.v_ctrl
+        r_last = cs.DM.ones(self.r.size1(), 1)
+
+        for k in range(self.environment.demands.shape[0]):
+
+            d_hat = self.calculate_demands_over_horizon(k)
+            if k % self.M == 0:
+                sol = self.MPC.solve(
+                    pars={
+                        "rho_0": rho,
+                        "v_0": v,
+                        "w_0": w,
+                        "d": d_hat.T,
+                        "v_ctrl_last": v_ctrl_last,
+                    },
+                    vals0=sol_prev,
+                )
+                sol_prev = sol.vals
+                v_ctrl_last = sol.vals["v_ctrl"][:, 0]
+                r_last = sol.vals["r"][:, 0]
+            
+            rho, v, w, q, q_on = self.get_next_states(rho, v, w, v_ctrl_last, r_last, k, F=F)
+
+            self.store_step(rho, v, w, q, q_on, v_ctrl_last=v_ctrl_last)
+
+            if k % 100 == 0:
+                LOGGER.info(f"step {k} of {self.environment.demands.shape[0]}")

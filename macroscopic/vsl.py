@@ -17,7 +17,6 @@ class CarlsonLinkWithVsl(LinkWithVsl):
         self.V = V
     
     def _get_equilibrium_speed(self, engine, rho):
-        print(self.vsl)
         
         Veq_default = engine.links.Veq(rho, self.v_free, self.rho_crit, self.a)
         ratio = self.actions["v_ctrl"] / self.V

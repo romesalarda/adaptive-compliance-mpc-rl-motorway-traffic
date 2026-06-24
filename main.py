@@ -1,12 +1,12 @@
 from macroscopic.simulation.environment import Environment
-from macroscopic.simulation.parameters import BaseParameters
+from macroscopic.simulation.parameters import BaseParameters, VslParameters
 from sym_metanet import Network
 
 from dataclasses import asdict
 
 # from macroscopic.simulation.demands import Demands
-from macroscopic.solvers.ramp import MpcRMSimulation
-
+from macroscopic.solvers import MpcRMSimulation, MpcVSLSimulation
+from macroscopic.vsl import CarlsonLinkWithVsl
 from sym_metanet import (
     Destination,
     Link,
@@ -84,21 +84,72 @@ if __name__ == "__main__":
         "v_free_init": [102, 102, 102, 102, 102, 102],
         "w_init": [0, 0],
         "r_init": [0],
+
+     
     }
-    parameters = BaseParameters(**initial_conditions)
-    network = define_network(parameters, Link[cs.SX], a=0.5)
-    solver = MpcRMSimulation(
-        environment=Environment(
-            parameters=parameters,
-            network=network,
-            demands=create_demands(parameters.time).T,
-        ),
-        Np=7,
-        Nc=3,
-        M=6,
-        function_compactness=2
-    )
-    solver.setup()
-    solver.simulate()
+
+    test_type = input("Enter test type (vsl or rm): ").strip().lower()
+
+    if test_type == "vsl":
+
+        initial_conditions.update(
+            {
+                "alpha_compliance": 0.5,
+                "A": 0.5,
+                "E": 0.5,
+                "V": 120,
+                "v_ctrl": [120, 120, 120, 120],
+                "segments_with_vsl": [0, 1, 2, 3],
+                "minimum_speed_limit": 60,
+                "maximum_speed_limit": 120,
+            }
+        )
+    
+        parameters = VslParameters(**initial_conditions)
+        network = define_network(
+            parameters, 
+            CarlsonLinkWithVsl,
+            a=0.5,
+            segments_with_vsl=initial_conditions["segments_with_vsl"],
+            alpha=initial_conditions["alpha_compliance"],
+            V=initial_conditions["V"],
+            A=initial_conditions["A"],
+            E=initial_conditions["E"],
+            )
+        solver = MpcVSLSimulation(
+            environment=Environment(
+                parameters=parameters,
+                network=network,
+                demands=create_demands(parameters.time).T,
+            ),
+            Np=7,
+            Nc=3,
+            M=6,
+            function_compactness=2,
+        )
+        solver.setup()
+        solver.simulate()
+
+    elif test_type == "rm":
+
+        parameters = BaseParameters(**initial_conditions)
+        network = define_network(
+            parameters, 
+            Link,
+            a=0.5,
+            )
+        solver = MpcRMSimulation(
+            environment=Environment(
+                parameters=parameters,
+                network=network,
+                demands=create_demands(parameters.time).T,
+            ),
+            Np=7,
+            Nc=3,
+            M=6,
+            function_compactness=2,
+        )
+        solver.setup()
+        solver.simulate()
 
     print(asdict(solver.overview_results))

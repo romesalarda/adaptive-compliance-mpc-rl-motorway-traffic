@@ -49,7 +49,7 @@ class MpcRMSimulation(BaseMPCSolver):
             
             rho, v, w, q, q_on = self.get_next_states(rho, v, w, r_last, k, F=F)
 
-            self.store_step(rho, v, w, q, q_on, r_last)
+            self.store_step(rho, v, w, q, q_on, r_last=r_last)
 
             if k % 100 == 0:
                 LOGGER.info(f"step {k} of {self.environment.demands.shape[0]}")

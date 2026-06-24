@@ -534,7 +534,7 @@ class VslParameters(BaseParameters):
     
     @v_ctrl.setter
     def v_ctrl(self, value: cs.DM):
-        if value <= 0:
+        if any(v <= 0 for v in value):
             raise ValueError("Control speed (v_ctrl) must be positive.")
         self._v_ctrl = value
 

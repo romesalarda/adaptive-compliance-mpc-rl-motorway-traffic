@@ -1,4 +1,5 @@
 import time
+from colorlog.escape_codes import name
 import sym_metanet as smn
 
 from typing import TypeVar
@@ -220,12 +221,18 @@ class BaseMPCSolver:
 
         self.environment.check()  
 
-        return smn.engine.to_function(
+        print(self.environment.network.links)
+        print(self.environment.network.origins)
+
+        F = smn.engine.to_function(
             net=self.environment.network,
             more_out=more_out,
             compact=compact,
             T=self.environment.parameters.T,
         )
+        for el, acts in self.environment.network.actions.items():
+            print(el.name, len(acts), acts)
+        return F
 
 
     def pre_init_mpc(self):
@@ -256,10 +263,7 @@ class BaseMPCSolver:
     def init_base_states(self):
         '''
         Initialize the base states for the MPC solver.
-        '''
-        n_seg = self.number_of_segments
-        kwargs = self.kwargs
-
+        '''      
         self.rho, _ = self.MPC.state("rho", self.number_of_segments, lb=0)
         self.v, _ = self.MPC.state("v", self.number_of_segments, lb=0)
 
@@ -274,7 +278,6 @@ class BaseMPCSolver:
         '''
         self.r, _ = self.MPC.action("r", lb=0, ub=1)
         self.r_last = self.MPC.parameter("r_last", (self.r.size1(), 1))
-
 
     def init_constraints(self):
         '''
@@ -406,7 +409,7 @@ class BaseMPCSolver:
 
         raise NotImplementedError("The '_simulate' method must be implemented in subclasses of BaseMPCSolver.")
     
-    def store_step(self, rho, v, w, q, q_on, r_last):
+    def store_step(self, rho, v, w, q, q_on, **kwargs):
         '''
         Store the simulation results for a single time step. This method appends the current state variables and outputs to the simulation results object, allowing for later analysis and visualization of the traffic flow dynamics.
         '''
@@ -415,7 +418,7 @@ class BaseMPCSolver:
         self.simulation_results.w.append(w)
         self.simulation_results.q.append(q)
         self.simulation_results.q_on.append(q_on)
-        self.simulation_results.r.append(r_last)
+        self.simulation_results.r.append(kwargs.get("r_last", None))
 
     def calculate_demands_over_horizon(self, k):
         '''
