@@ -1,4 +1,3 @@
-from macroscopic.simulation.environment import Environment
 from macroscopic.solvers.base import BaseMPCSolver
 
 
@@ -9,7 +8,6 @@ import numpy as np
 
 SymType = TypeVar("SymType", cs.SX, cs.MX)
 
-from macroscopic.simulation.environment import Environment
 from macroscopic.logger import LOGGER
 
 class MpcRMSimulation(BaseMPCSolver):

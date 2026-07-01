@@ -6,6 +6,8 @@ from dataclasses import asdict
 
 # from macroscopic.simulation.demands import Demands
 from macroscopic.solvers import MpcRMSimulation, MpcVSLSimulation
+from macroscopic.simulation.model import BaseModelSimulation
+
 from macroscopic.vsl import CarlsonLinkWithVsl
 from sym_metanet import (
     Destination,
@@ -13,6 +15,8 @@ from sym_metanet import (
     MeteredOnRamp,
     Network,
     Node,
+    Origin,
+    MainstreamOrigin,   
 )
 
 import casadi as cs
@@ -25,8 +29,10 @@ def define_network(parameters: BaseParameters, L1_klass: Link, **kwargs) -> Netw
     N2 = Node(name="N2")
     N3 = Node(name="N3")
     
-    O1 = MeteredOnRamp[cs.SX](params.C[0], name="O1")
+    # O1 = MeteredOnRamp[cs.SX](params.C[0], name="O1")
     O2 = MeteredOnRamp[cs.SX](params.C[1], name="O2")
+    O1 = MainstreamOrigin[cs.SX](name="O1")
+    # O2 = MainstreamOrigin[cs.SX](name="O2")
     D1 = Destination[cs.SX](name="D1")
 
     L1 = L1_klass(
@@ -88,7 +94,9 @@ if __name__ == "__main__":
      
     }
 
-    test_type = input("Enter test type (vsl or rm): ").strip().lower()
+    test_type = input("Enter test type (vsl | rm | base): ").strip().lower()
+    if test_type not in ["vsl", "rm", "base"]:
+        raise ValueError("Invalid test type. Please choose from 'vsl', 'rm', or 'base'.")
 
     if test_type == "vsl":
 
@@ -148,6 +156,30 @@ if __name__ == "__main__":
             Nc=3,
             M=6,
             function_compactness=2,
+        )
+        solver.setup()
+        solver.simulate()
+
+    elif test_type == "base":
+        
+
+        parameters = BaseParameters(**initial_conditions)
+        network = define_network(
+            parameters, 
+            Link,
+            a=0.5,
+            )
+        
+        solver = BaseModelSimulation(
+            environment=Environment(
+                parameters=parameters,
+                network=network,
+                demands=create_demands(parameters.time).T,
+            ),
+            function_compactness=1,
+            initial_conditions={
+                network.origins_by_name["O1"]: {"r": 1, "v_ctrl": 102}
+            }
         )
         solver.setup()
         solver.simulate()
