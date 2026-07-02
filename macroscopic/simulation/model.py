@@ -51,7 +51,7 @@ class BaseSimulation:
             compact = self.function_compactness
 
         self.environment.check()  
-
+        print(compact)
         F = smn.engine.to_function(
             net=self.environment.network,
             more_out=more_out,
@@ -59,39 +59,42 @@ class BaseSimulation:
             T=self.environment.parameters.T,
         )
 
+        for el, acts in self.environment.network.actions.items():
+            print(el.name, len(acts), acts)
+
         return F
     
     def store_step(self, rho, v, w, q, q_on, omit_if_none=False, **kwargs):
         '''
         Store the simulation results for a single time step. This method appends the current state variables and outputs to the simulation results object, allowing for later analysis and visualization of the traffic flow dynamics.
         '''
-        self.simulation_results.rho.append(rho)
-        self.simulation_results.v.append(v)
-        self.simulation_results.w.append(w)
-        self.simulation_results.q.append(q)
-        self.simulation_results.q_on.append(q_on)
+        self.simulation_results.RHO.append(rho)
+        self.simulation_results.V.append(v)
+        self.simulation_results.W.append(w)
+        self.simulation_results.Q.append(q)
+        self.simulation_results.Q_o.append(q_on)
 
         if not omit_if_none: # store even if None 
-            self.simulation_results.r.append(kwargs.get("r_last", None))
-            self.simulation_results.v_ctrl.append(kwargs.get("v_ctrl_last", None))
+            self.simulation_results.R.append(kwargs.get("r_last", None))
+            self.simulation_results.V_CTRL.append(kwargs.get("v_ctrl_last", None))
 
         # store only if not None
         if kwargs.get("r_last", None) is not None:
-            self.simulation_results.r.append(kwargs.get("r_last", None))
+            self.simulation_results.R.append(kwargs.get("r_last", None))
         if kwargs.get("v_ctrl_last", None) is not None:
-            self.simulation_results.v_ctrl.append(kwargs.get("v_ctrl_last", None))
+            self.simulation_results.V_CTRL.append(kwargs.get("v_ctrl_last", None))
 
     def post_simulate(self):
         '''
         Post-process the simulation results after the simulation is complete. This method can be used to compute additional statistics, generate plots, or perform any other necessary post-simulation analysis.
         '''
         RHO, V, W, Q, Q_o, R = (np.squeeze(o) for o in (
-            self.simulation_results.rho, 
-            self.simulation_results.v, 
-            self.simulation_results.w,
-            self.simulation_results.q, 
-            self.simulation_results.q_on, 
-            self.simulation_results.r
+            self.simulation_results.RHO, 
+            self.simulation_results.V, 
+            self.simulation_results.W,
+            self.simulation_results.Q, 
+            self.simulation_results.Q_o, 
+            self.simulation_results.R
             )
         ) 
         parameters = self.environment.parameters
@@ -107,6 +110,18 @@ class BaseSimulation:
         self.overview_results.congestion_time = T * sum(1 for rho in RHO if rho.sum() > rho_crit * RHO.shape[1])
         self.overview_results.excess_congestion_time = T * sum(np.maximum(0, rho - rho_crit).sum() for rho in RHO)
         self.overview_results.total_speed_variance = T * sum(((v - v_free) ** 2).sum() for v in V)
+
+        self.simulation_results.rho = RHO
+        self.simulation_results.v = V
+        self.simulation_results.w = W
+        self.simulation_results.q = Q
+        self.simulation_results.q_on = Q_o
+        self.simulation_results.r = R
+        self.simulation_results.v_ctrl = self.simulation_results.V_CTRL
+
+        self.simulation_results.origin_names = list(self.environment.network.origins_by_name.keys())
+        self.simulation_results.demands = self.environment.demands
+        self.simulation_results.parameters = self.environment.parameters
 
         return self.overview_results
 
@@ -130,9 +145,9 @@ class BaseModelSimulation(BaseSimulation):
     def _simulate(self):
 
         self.environment.check()  # Ensure the environment is ready before simulation
-    
-        F = self.get_function(more_out=True, compact=self.function_compactness)
         
+        F = self.get_function(more_out=True, compact=self.function_compactness)
+
         rho = copy.copy(self.parameters.rho_init)
         v = copy.copy(self.parameters.v_free_init)
         w = copy.copy(self.parameters.w_init)

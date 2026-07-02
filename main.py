@@ -12,6 +12,7 @@ from macroscopic.vsl import CarlsonLinkWithVsl
 from sym_metanet import (
     Destination,
     Link,
+    LinkWithVsl,
     MeteredOnRamp,
     Network,
     Node,
@@ -21,6 +22,8 @@ from sym_metanet import (
 
 import casadi as cs
 import numpy as np
+
+from macroscopic.visualisation.base import METANETVisualiser
 
 def define_network(parameters: BaseParameters, L1_klass: Link, **kwargs) -> Network:
     params = parameters
@@ -97,6 +100,8 @@ if __name__ == "__main__":
     test_type = input("Enter test type (vsl | rm | base): ").strip().lower()
     if test_type not in ["vsl", "rm", "base"]:
         raise ValueError("Invalid test type. Please choose from 'vsl', 'rm', or 'base'.")
+    
+    visualiser = METANETVisualiser()
 
     if test_type == "vsl":
 
@@ -138,6 +143,13 @@ if __name__ == "__main__":
         solver.setup()
         solver.simulate()
 
+        visualiser.plot_rm_vsl(
+            results=solver.simulation_results,
+            params=solver.environment.parameters,
+            metrics=solver.overview_results,
+            show=True
+        )
+
     elif test_type == "rm":
 
         parameters = BaseParameters(**initial_conditions)
@@ -160,14 +172,36 @@ if __name__ == "__main__":
         solver.setup()
         solver.simulate()
 
+        visualiser.plot_ramp_metering(
+            results=solver.simulation_results,
+            params=solver.environment.parameters,
+            metrics=solver.overview_results,
+            show=True
+        )
+
     elif test_type == "base":
         
+        initial_conditions.update(
+            {
+                "alpha_compliance": 0.5,
+                "A": 0.5,
+                "E": 0.5,
+                "V": 120,
+                "v_ctrl": [120, 120, 120, 120, 120], # O2 also counts as a VSL inbound control, so we need 5 values for v_ctrl
+                "segments_with_vsl": [0, 1, 2, 3],
+                "minimum_speed_limit": 60,
+                "maximum_speed_limit": 120,
+            }
+        )
 
-        parameters = BaseParameters(**initial_conditions)
+        parameters = VslParameters(**initial_conditions)
         network = define_network(
             parameters, 
-            Link,
+            LinkWithVsl,
             a=0.5,
+            segments_with_vsl=initial_conditions["segments_with_vsl"],
+            alpha=initial_conditions["alpha_compliance"],
+            
             )
         
         solver = BaseModelSimulation(
@@ -178,10 +212,19 @@ if __name__ == "__main__":
             ),
             function_compactness=1,
             initial_conditions={
-                network.origins_by_name["O1"]: {"r": 1, "v_ctrl": 102}
+                network.origins_by_name["O1"]: {"r": 1, "v_ctrl": [120, 120, 120, 120, 120]},
             }
         )
         solver.setup()
         solver.simulate()
 
-    print(asdict(solver.overview_results))
+        visualiser.plot_dynamics(
+            results=solver.simulation_results,
+            params=solver.environment.parameters,
+            metrics=solver.overview_results,
+            show=True
+        )
+
+
+
+    

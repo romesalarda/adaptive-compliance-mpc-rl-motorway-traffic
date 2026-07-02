@@ -376,25 +376,6 @@ class BaseMPCSolver(BaseSimulation):
 
         raise NotImplementedError("The '_simulate' method must be implemented in subclasses of BaseMPCSolver.")
     
-    # def store_step(self, rho, v, w, q, q_on, omit_if_none=False, **kwargs):
-    #     '''
-    #     Store the simulation results for a single time step. This method appends the current state variables and outputs to the simulation results object, allowing for later analysis and visualization of the traffic flow dynamics.
-    #     '''
-    #     self.simulation_results.rho.append(rho)
-    #     self.simulation_results.v.append(v)
-    #     self.simulation_results.w.append(w)
-    #     self.simulation_results.q.append(q)
-    #     self.simulation_results.q_on.append(q_on)
-
-    #     if not omit_if_none: # store even if None 
-    #         self.simulation_results.r.append(kwargs.get("r_last", None))
-    #         self.simulation_results.v_ctrl.append(kwargs.get("v_ctrl_last", None))
-
-    #     # store only if not None
-    #     if kwargs.get("r_last", None) is not None:
-    #         self.simulation_results.r.append(kwargs.get("r_last", None))
-    #     if kwargs.get("v_ctrl_last", None) is not None:
-    #         self.simulation_results.v_ctrl.append(kwargs.get("v_ctrl_last", None))
 
     def calculate_demands_over_horizon(self, k):
         '''
@@ -424,31 +405,3 @@ class BaseMPCSolver(BaseSimulation):
         q, q_on = cs.vertsplit(q_all, (0, self.number_of_segments, self.number_of_segments + self.number_of_origins))
         return rho, v, w, q, q_on
     
-    # def post_simulate(self):
-    #     '''
-    #     Post-process the simulation results after the simulation is complete. This method can be used to compute additional statistics, generate plots, or perform any other necessary post-simulation analysis.
-    #     '''
-    #     RHO, V, W, Q, Q_o, R = (np.squeeze(o) for o in (
-    #         self.simulation_results.rho, 
-    #         self.simulation_results.v, 
-    #         self.simulation_results.w,
-    #         self.simulation_results.q, 
-    #         self.simulation_results.q_on, 
-    #         self.simulation_results.r
-    #         )
-    #     ) 
-    #     parameters = self.environment.parameters
-    #     T = parameters.T
-    #     L = parameters.L
-    #     lanes = parameters.lanes
-    #     rho_crit = parameters.rho_crit
-    #     v_free = parameters.v_free
-
-    #     self.overview_results.total_time_spent = T * sum((rho * L * lanes).sum() + w.sum() for rho, w in zip(RHO, W))
-    #     self.overview_results.total_wait_time = T * sum(w.sum() for w in W)
-    #     self.overview_results.total_distance_traveled = T * L * sum(q.sum() for q in Q)
-    #     self.overview_results.congestion_time = T * sum(1 for rho in RHO if rho.sum() > rho_crit * RHO.shape[1])
-    #     self.overview_results.excess_congestion_time = T * sum(np.maximum(0, rho - rho_crit).sum() for rho in RHO)
-    #     self.overview_results.total_speed_variance = T * sum(((v - v_free) ** 2).sum() for v in V)
-
-    #     return self.overview_results
