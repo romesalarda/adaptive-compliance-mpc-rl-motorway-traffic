@@ -350,7 +350,7 @@ class BaseMPCSolver(BaseSimulation):
         Simulate the traffic flow dynamics over time using the MPC solver. This method orchestrates the entire simulation process, including pre-simulation steps, the main simulation loop, and post-simulation steps. It handles exceptions and logs relevant information about the simulation progress.
         '''
         try:
-                
+            start_time = time.time()
             LOGGER.info("\nStarting the simulation process...")
             self.pre_simulate()
             LOGGER.info("Pre-simulation steps completed successfully. ✓")
@@ -360,7 +360,10 @@ class BaseMPCSolver(BaseSimulation):
             LOGGER.info("Proceeding with post-simulation steps...")
             self.post_simulate()
             LOGGER.info("Post-simulation steps completed successfully. ✓")
-
+            end_time = time.time()
+            LOGGER.info(f"Simulation completed in {end_time - start_time:.2f} seconds.")
+            self.run_results.total_simulation_time = end_time - start_time
+            
         except KeyboardInterrupt:
             LOGGER.warning("Simulation interrupted by user.")
 

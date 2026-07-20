@@ -77,8 +77,6 @@ class MacroOverviewSimulationResults:
             f"Excess ρ={self.excess_congestion_time:.2f}",
             f"Speed Var={self.total_speed_variance:.1f}",
         ]
-        if include_computation and self.computation_time is not None:
-            parts.append(f"Comp.Time={self.computation_time:.1f} s")
         return " | ".join(parts)
 
 @dataclass(slots=True)  

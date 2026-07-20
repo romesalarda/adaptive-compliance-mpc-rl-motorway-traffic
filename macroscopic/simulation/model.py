@@ -117,7 +117,7 @@ class BaseSimulation:
         self.simulation_results.q = Q
         self.simulation_results.q_on = Q_o
         self.simulation_results.r = R
-        self.simulation_results.v_ctrl = self.simulation_results.V_CTRL
+        self.simulation_results.v_ctrl = np.squeeze(np.array(self.simulation_results.V_CTRL)) if self.simulation_results.V_CTRL else None
 
         self.simulation_results.origin_names = list(self.environment.network.origins_by_name.keys())
         self.simulation_results.demands = self.environment.demands

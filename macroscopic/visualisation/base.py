@@ -31,7 +31,7 @@ from matplotlib.axes import Axes
 from matplotlib.figure import Figure
 
 from macroscopic.statistics import MacroOverviewSimulationResults, MacroSimulationResults
-from macroscopic.simulation.parameters import BaseParameters
+from macroscopic.simulation.parameters import BaseParameters, VslParameters
 from macroscopic.simulation.environment import Environment
 
 logger = logging.getLogger(__name__)
@@ -118,16 +118,22 @@ class METANETVisualiser:
                    label=f"Critical ρ={params.rho_crit}")
         ax.legend(loc="best", fontsize=8, ncol=2)
 
-    def _vsl_panel(self, ax: Axes, results: MacroSimulationResults, params: BaseParameters,
+    def _vsl_panel(self, ax: Axes, results: MacroSimulationResults, params: VslParameters,
                    vsl_colors, vsl_names) -> None:
         self._plot_series(ax, params.time, results.v_ctrl, vsl_colors, vsl_names,
                            "VSL Speed [km/h]", "Variable Speed Limits",
-                           step=True, fill_base=params.v_min, alpha=0.15)
-        ax.axhline(y=params.v_min, color="gray", linestyle=":", linewidth=1, alpha=0.5)
-        ax.axhline(y=params.v_max, color="gray", linestyle=":", linewidth=1, alpha=0.5)
-        ax.set_ylim(params.v_min - 5, params.v_max + 5)
+                           step=True, fill_base=params.minimum_speed_limit, alpha=0.15)
+        ax.axhline(y=params.minimum_speed_limit, color="gray", linestyle=":", linewidth=1, alpha=0.5)
+        ax.axhline(y=params.maximum_speed_limit, color="gray", linestyle=":", linewidth=1, alpha=0.5)
+        ax.set_ylim(params.minimum_speed_limit - 5, params.maximum_speed_limit + 5)
 
     def _metering_panel(self, ax: Axes, results: MacroSimulationResults, params: BaseParameters) -> None:
+        if results.r is None or results.r.size == 0:
+            ax.set_title("Ramp Metering Control", fontweight="bold", fontsize=10)
+            ax.text(0.5, 0.5, "No ramp metering data", ha="center", va="center",
+                    transform=ax.transAxes, fontsize=9, color="gray")
+            ax.set_xlabel("Time [h]", fontweight="bold")
+            return
         r = results.r if results.r.ndim > 1 else results.r.reshape(-1, 1)
         n_ramps = r.shape[1]
         colors = [self.METERING_COLOR] if n_ramps == 1 else self._vsl_colors(n_ramps)
@@ -262,14 +268,14 @@ class METANETVisualiser:
     def plot_rm_vsl(self, results: MacroSimulationResults, params: BaseParameters,
                      metrics: MacroOverviewSimulationResults, show: bool = False) -> Figure:
         """Plot combined MPC RM + VSL control results, with an explicit VSL-rate panel."""
-        if results.r is None or results.v_ctrl is None or results.B is None:
-            raise ValueError("results.r, results.v_ctrl and results.B are all required for this plot")
+        if results.r is None or results.v_ctrl is None:
+            raise ValueError("results.r and results.v_ctrl are required for this plot")
         fig, axs = self._figure(4, 2, (14, 10), "MPC Ramp Metering + VSL Control - Traffic System Behavior")
         seg_colors, seg_names, orig_colors, orig_names = self._palette(results)
         vsl_colors = self._vsl_colors(results.v_ctrl.shape[1])
         vsl_names = self._segment_names(results.v_ctrl.shape[1])
 
-        self._plot_series(axs[0, 0], results.time, results.v, seg_colors, seg_names,
+        self._plot_series(axs[0, 0], params.time, results.v, seg_colors, seg_names,
                            "Speed [km/h]", "Speed Profile", ncol=2)
         self._plot_series(axs[0, 1], params.time, results.q, seg_colors, seg_names,
                            "Flow [veh/h]", "Flow Profile", ncol=2)
@@ -281,8 +287,8 @@ class METANETVisualiser:
         self._vsl_panel(axs[2, 1], results, params, vsl_colors, vsl_names)
         self._metering_panel(axs[3, 0], results, params)
 
-        self._plot_series(axs[3, 1], params.time, results.B, vsl_colors, vsl_names,
-                           "VSL Rate", "VSL Control Rate", step=True, alpha=0.15)
+        # self._plot_series(axs[3, 1], params.time, results.B, vsl_colors, vsl_names,
+        #                    "VSL Rate", "VSL Control Rate", step=True, alpha=0.15)
         axs[3, 1].set_ylim(-0.05, 1.05)
         axs[3, 1].set_xlabel("Time [h]", fontweight="bold")
 
