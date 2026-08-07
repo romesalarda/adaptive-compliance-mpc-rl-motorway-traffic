@@ -1,11 +1,9 @@
 import time
-from colorlog.escape_codes import name
-import sym_metanet as smn
+from sym_metanet import MeteredOnRamp
 
 from typing import TypeVar
 from csnlp.wrappers import Mpc
 from csnlp import Nlp
-
 import casadi as cs
 import numpy as np
 
@@ -226,7 +224,18 @@ class BaseMPCSolver(BaseSimulation):
         '''
         override this method to perform any necessary pre-initialization steps for the MPC solver.
         '''
-        self.environment.ready(initial_conditions=self.kwargs.get("initial_conditions", {}))
+        # self.environment.ready(initial_conditions=self.kwargs.get("initial_conditions", {}))
+        network = self.environment.network
+        # Identify mainline origins (node has no entering links) and fix r=1
+        mainline_ic = {
+            origin: {"r": 1}
+            for origin, node in network.origins.items()
+            if isinstance(origin, MeteredOnRamp) and not any(network.in_links(node))
+        }
+        # Merge with any user-provided initial_conditions (user wins if they specify r)
+        ic = {**mainline_ic, **self.kwargs.get("initial_conditions", {})}
+        LOGGER.info(f"Pre-initializing MPC with initial conditions: {ic}")
+        self.environment.ready(initial_conditions=ic)
 
     def init_mpc(self):
         '''
@@ -270,6 +279,7 @@ class BaseMPCSolver(BaseSimulation):
         '''
         Initialize the constraints for the MPC solver. This method sets up the constraints that govern the macroscopic traffic flow model, ensuring that the optimization problem adheres to the physical and operational limits of the system.
         '''
+        LOGGER.warning("init_constraints method is not implemented in the base class. Subclasses should override this method to define specific constraints for the MPC solver.")
         pass
     
     def init_objective(self):

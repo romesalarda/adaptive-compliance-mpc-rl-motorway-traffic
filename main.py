@@ -34,9 +34,9 @@ def define_network(parameters: BaseParameters, L1_klass: Link, **kwargs) -> Netw
     N2 = Node(name="N2")
     N3 = Node(name="N3")
     
-    O1 = MeteredOnRamp[cs.SX](params.C[0], name="O1")
+    # O1 = MeteredOnRamp[cs.SX](params.C[0], name="O1")
     O2 = MeteredOnRamp[cs.SX](params.C[1], name="O2")
-    # O1 = MainstreamOrigin[cs.SX](name="O1")
+    O1 = MainstreamOrigin[cs.SX](name="O1")
     # O2 = MainstreamOrigin[cs.SX](name="O2")
     D1 = Destination[cs.SX](name="D1")
 
@@ -85,14 +85,16 @@ def create_demands(time: np.ndarray) -> np.ndarray:
                 # Mainline demand
                 np.interp(
                     time,
-                    (0.0, 0.5, 1.0, 1.5, 2.5),
-                    (2800, 3000, 3500, 3000, 2800)
+                    # (0.0, 0.5, 1.0, 1.5, 2.5),
+                    _DEMANDS_META["xp"],
+                    # (2800, 3000, 3500, 3000, 2800)
+                    _DEMANDS_META["fp"][0]
                 ),
                 # On-ramp demand
                 np.interp(
                     time,
-                    (0.0, 0.5, 1.0, 1.5, 2.5),
-                    (200, 600, 800, 600, 200)
+                    _DEMANDS_META["xp"],
+                    _DEMANDS_META["fp"][1]
 
                 ),
             )
@@ -103,9 +105,9 @@ if __name__ == "__main__":
 
     initial_conditions = {
         "rho_init": [10, 10, 10, 10, 10, 10],
-        "v_free_init": [102, 102, 102, 102, 102, 102],
+        "v_free_init": [112, 112, 112, 112, 112, 112],
         "w_init": [0, 0],
-        "r_init": [1, 1],
+        "r_init": [1],
     }
 
     test_type = input("Enter test type (vsl | rm | base): ").strip().lower()
@@ -120,13 +122,14 @@ if __name__ == "__main__":
         initial_conditions.update(
             {
                 "alpha_compliance": 0.5,
-                "A": 0.5,
-                "E": 0.5,
+                "A": 0.8,
+                "E": 3.0,
                 "V": 120,
                 "v_ctrl": [120, 120, 120, 120],
                 "segments_with_vsl": [0, 1, 2, 3],
-                "minimum_speed_limit": 60,
+                "minimum_speed_limit": 30,
                 "maximum_speed_limit": 120,
+                "a": 1.867,
             }
         )
     
@@ -134,7 +137,7 @@ if __name__ == "__main__":
         network = define_network(
             parameters, 
             CarlsonLinkWithVsl,
-            a=0.5,
+            a=parameters.a,
             segments_with_vsl=initial_conditions["segments_with_vsl"],
             alpha=initial_conditions["alpha_compliance"],
             V=initial_conditions["V"],
@@ -151,6 +154,9 @@ if __name__ == "__main__":
             Nc=3,
             M=6,
             function_compactness=2,
+            initial_conditions={
+                network.origins_by_name["O1"]: {"v_ctrl": np.inf},  # effectively unrestricted
+            }
         )
         solver.setup()
         solver.simulate()
@@ -167,10 +173,11 @@ if __name__ == "__main__":
     elif test_type == "rm":
 
         parameters = BaseParameters(**initial_conditions)
+        parameters.a = 1.867
         network = define_network(
             parameters, 
             Link,
-            a=0.5,
+            a=parameters.a,
             )
         solver = MpcRMSimulation(
             environment=Environment(
@@ -183,8 +190,12 @@ if __name__ == "__main__":
             M=6,
             function_compactness=2,
             objective_weights={
-                "temporal_smoothness": 0.1        
+                "temporal_smoothness": 0.4     
             },
+            initial_conditions={
+                network.origins_by_name["O1"]: {"v_ctrl": np.inf, "r": 1},  # effectively unrestricted
+
+            }
         )
         solver.setup()
         solver.simulate()
@@ -200,27 +211,12 @@ if __name__ == "__main__":
 
     elif test_type == "base":
         
-        initial_conditions.update(
-            {
-                "alpha_compliance": 0.5,
-                "A": 0.5,
-                "E": 0.5,
-                "V": 120,
-                "v_ctrl": [120, 120, 120, 120], # O2 also counts as a VSL inbound control, so we need 5 values for v_ctrl
-                "segments_with_vsl": [0, 1, 2, 3],
-                "minimum_speed_limit": 60,
-                "maximum_speed_limit": 120,
-            }
-        )
-
-        parameters = VslParameters(**initial_conditions)
+        parameters = BaseParameters(**initial_conditions)
+        parameters.a = 1.867
         network = define_network(
             parameters, 
-            LinkWithVsl,
-            a=0.5,
-            segments_with_vsl=initial_conditions["segments_with_vsl"],
-            alpha=initial_conditions["alpha_compliance"],
-            
+            Link,
+            a=parameters.a,            
             )
         
         solver = BaseModelSimulation(
@@ -231,10 +227,11 @@ if __name__ == "__main__":
             ),
             function_compactness=1,
             initial_conditions={
-                network.origins_by_name["O1"]: {"r": 1, "v_ctrl": [120, 120, 120, 120]},
+                network.origins_by_name["O1"]: {"v_ctrl": np.inf, "r": 1},  # effectively unrestricted
             }
         )
         solver.setup()
+        solver.parameters.pprint()
         solver.simulate()
 
         fig = visualiser.plot_dynamics(

@@ -44,7 +44,7 @@ class Environment:
             eta=self.parameters.eta,
             kappa=self.parameters.kappa,
             delta=self.parameters.delta,
-            initial_conditions=initial_conditions
+            init_conditions=initial_conditions
         )
 
         self.is_ready = True  # Set the environment as ready after successful setup

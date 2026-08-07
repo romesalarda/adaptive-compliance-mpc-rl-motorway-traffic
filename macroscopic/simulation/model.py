@@ -166,8 +166,8 @@ class BaseModelSimulation(BaseSimulation):
                 rho, v, w, q, q_o = F(rho, v, w, v_ctrl, r, d)   
             else:
                 rho, v, w, q, q_o = F(rho, v, w, r, d)
-            print(f"step {t_idx} of {self.environment.demands.shape[0]}")
-            print(f"rho: {rho}, v: {v}, w: {w}, q: {q}, q_o: {q_o}, r: {r}, v_ctrl: {v_ctrl}")
+            # print(f"step {t_idx} of {self.environment.demands.shape[0]}")
+            # print(f"rho: {rho}, v: {v}, w: {w}, q: {q}, q_o: {q_o}, r: {r}, v_ctrl: {v_ctrl}")
             self.store_step(rho, v, w, q, q_o, omit_if_none=False, r_last=r, v_ctrl_last=v_ctrl)
 
     def simulate(self):

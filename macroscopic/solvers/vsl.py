@@ -1,3 +1,5 @@
+from sym_metanet import MeteredOnRamp
+
 from macroscopic.simulation.environment import Environment
 from macroscopic.simulation.parameters import VslParameters
 from macroscopic.solvers.base import BaseMPCSolver
@@ -55,7 +57,8 @@ class MpcVSLSimulation(BaseMPCSolver):
             ub=parameters.maximum_speed_limit
         ) 
 
-        self.r, _ = self.MPC.action("r", self.number_of_origins, lb=1, ub=1) # dummy ramp metering control to keep function signature
+        n_metered = sum(1 for o in self.environment.network.origins if isinstance(o, MeteredOnRamp))
+        self.r, _ = self.MPC.action("r", n_metered, lb=1, ub=1)
         
         self.v_ctrl_last = self.MPC.parameter("v_ctrl_last", (self.v_ctrl.size1(), 1))
 
