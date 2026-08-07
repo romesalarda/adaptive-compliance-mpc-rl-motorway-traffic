@@ -77,6 +77,7 @@ class BaseSimulation:
         if not omit_if_none: # store even if None 
             self.simulation_results.R.append(kwargs.get("r_last", None))
             self.simulation_results.V_CTRL.append(kwargs.get("v_ctrl_last", None))
+            return
 
         # store only if not None
         if kwargs.get("r_last", None) is not None:
@@ -153,7 +154,7 @@ class BaseModelSimulation(BaseSimulation):
         w = copy.copy(self.parameters.w_init)
         
         r = copy.copy(self.parameters.r_init)
-
+        
         if hasattr(self.parameters, "v_ctrl"):
             v_ctrl = copy.copy(self.parameters.v_ctrl)
         else:
@@ -165,8 +166,9 @@ class BaseModelSimulation(BaseSimulation):
                 rho, v, w, q, q_o = F(rho, v, w, v_ctrl, r, d)   
             else:
                 rho, v, w, q, q_o = F(rho, v, w, r, d)
-
-            self.store_step(rho, v, w, q, q_o, omit_if_none=True, r_last=r, v_ctrl_last=v_ctrl)
+            print(f"step {t_idx} of {self.environment.demands.shape[0]}")
+            print(f"rho: {rho}, v: {v}, w: {w}, q: {q}, q_o: {q_o}, r: {r}, v_ctrl: {v_ctrl}")
+            self.store_step(rho, v, w, q, q_o, omit_if_none=False, r_last=r, v_ctrl_last=v_ctrl)
 
     def simulate(self):
         '''

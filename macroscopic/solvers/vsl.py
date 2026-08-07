@@ -97,7 +97,7 @@ class MpcVSLSimulation(BaseMPCSolver):
     def init_objective(self):
 
         parameters: VslParameters = self.environment.parameters
-        temporal_smoothness_weight = 100
+        temporal_smoothness_weight = self.objective_weights.get("temporal_smoothness", 10)
         temporal_smoothness = temporal_smoothness_weight * cs.sumsqr(cs.diff(cs.horzcat(self.v_ctrl_last, self.v_ctrl), 1, 1) / parameters.v_free)
 
         # TTT = sum of all segment densities + queue lengths, multiplied by T

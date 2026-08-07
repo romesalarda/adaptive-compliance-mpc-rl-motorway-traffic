@@ -56,6 +56,8 @@ class BaseMPCSolver(BaseSimulation):
             Np (int): Prediction horizon length for the solver.
             Nc (int): Control horizon length for the solver.
             M (int): Input spacing for the solver.
+            objective_weights (dict): Weights for the objective function components, e.g., {"temporal_smoothness": 10}.
+            queue_upper_bound (list): Upper bounds for the congestion queue, e.g., [100, 100, 100] for three origins.
             kwargs: Additional keyword arguments for solver configuration.
 
         Raises:
@@ -79,6 +81,11 @@ class BaseMPCSolver(BaseSimulation):
         self.number_of_origins = len(self.environment.network.origins)
 
         self.kwargs = kwargs  # Store any additional keyword arguments for future use
+        self.objective_weights = kwargs.get(
+            "objective_weights", {
+                "temporal_smoothness": 10
+            }
+        )
         self.queue_upper_bound = kwargs.get("queue_upper_bound", None)  # Upper bound for the congestion queue, can be adjusted as needed 
         self.function_compactness = kwargs.get("function_compactness", 1)  # Compactness level for the function representation, can be adjusted as needed
     
@@ -200,6 +207,19 @@ class BaseMPCSolver(BaseSimulation):
             raise ValueError("r_last must be a CasADi SX variable or None.")
         self._r_last = value
 
+    @property
+    def objective_weights(self):
+        '''
+        Weights for the objective function components.
+        '''
+        return self._objective_weights
+    
+    @objective_weights.setter
+    def objective_weights(self, value):
+        if not isinstance(value, dict):
+            raise ValueError("objective_weights must be a dictionary.")
+        self._objective_weights = value
+
     #### mpc methods
 
     def pre_init_mpc(self):
@@ -258,7 +278,7 @@ class BaseMPCSolver(BaseSimulation):
         '''
         self.MPC.minimize(
             self.environment.parameters.T * cs.sum2(cs.sum1(self.rho * self.environment.parameters.L * self.environment.parameters.lanes) + cs.sum1(self.w))
-            + self.kwargs.get("ramp_weight", 0.4) * cs.sumsqr(cs.diff(cs.horzcat(self.r_last, self.r)))
+            + self.objective_weights.get("ramp_weight", 0.4) * cs.sumsqr(cs.diff(cs.horzcat(self.r_last, self.r)))
         )
 
     def init_disturbances(self):

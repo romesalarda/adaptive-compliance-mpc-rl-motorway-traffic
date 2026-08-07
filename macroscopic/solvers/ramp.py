@@ -44,6 +44,7 @@ class MpcRMSimulation(BaseMPCSolver):
                 )
                 sol_prev = sol.vals
                 r_last = sol.vals["r"][0]
+                print(sol.vals["r"])
             
             rho, v, w, q, q_on = self.get_next_states(rho, v, w, r_last, k, F=F)
 

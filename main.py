@@ -32,9 +32,9 @@ def define_network(parameters: BaseParameters, L1_klass: Link, **kwargs) -> Netw
     N2 = Node(name="N2")
     N3 = Node(name="N3")
     
-    # O1 = MeteredOnRamp[cs.SX](params.C[0], name="O1")
+    O1 = MeteredOnRamp[cs.SX](params.C[0], name="O1")
     O2 = MeteredOnRamp[cs.SX](params.C[1], name="O2")
-    O1 = MainstreamOrigin[cs.SX](name="O1")
+    # O1 = MainstreamOrigin[cs.SX](name="O1")
     # O2 = MainstreamOrigin[cs.SX](name="O2")
     D1 = Destination[cs.SX](name="D1")
 
@@ -73,13 +73,13 @@ def create_demands(time: np.ndarray) -> np.ndarray:
                 np.interp(
                     time,
                     (0.0, 0.5, 1.0, 1.5, 2.5),
-                    (2800, 3200, 4000, 4200, 4200)
+                    (2800, 3000, 3500, 3000, 2800)
                 ),
                 # On-ramp demand
                 np.interp(
                     time,
                     (0.0, 0.5, 1.0, 1.5, 2.5),
-                    (200, 300, 300, 300, 200)
+                    (200, 600, 800, 600, 200)
 
                 ),
             )
@@ -92,9 +92,7 @@ if __name__ == "__main__":
         "rho_init": [10, 10, 10, 10, 10, 10],
         "v_free_init": [102, 102, 102, 102, 102, 102],
         "w_init": [0, 0],
-        "r_init": [0],
-
-     
+        "r_init": [1, 1],
     }
 
     test_type = input("Enter test type (vsl | rm | base): ").strip().lower()
@@ -168,6 +166,9 @@ if __name__ == "__main__":
             Nc=3,
             M=6,
             function_compactness=2,
+            objective_weights={
+                "temporal_smoothness": 0.1        
+            },
         )
         solver.setup()
         solver.simulate()
@@ -187,7 +188,7 @@ if __name__ == "__main__":
                 "A": 0.5,
                 "E": 0.5,
                 "V": 120,
-                "v_ctrl": [120, 120, 120, 120, 120], # O2 also counts as a VSL inbound control, so we need 5 values for v_ctrl
+                "v_ctrl": [120, 120, 120, 120], # O2 also counts as a VSL inbound control, so we need 5 values for v_ctrl
                 "segments_with_vsl": [0, 1, 2, 3],
                 "minimum_speed_limit": 60,
                 "maximum_speed_limit": 120,
@@ -212,7 +213,7 @@ if __name__ == "__main__":
             ),
             function_compactness=1,
             initial_conditions={
-                network.origins_by_name["O1"]: {"r": 1, "v_ctrl": [120, 120, 120, 120, 120]},
+                network.origins_by_name["O1"]: {"r": 1, "v_ctrl": [120, 120, 120, 120]},
             }
         )
         solver.setup()
