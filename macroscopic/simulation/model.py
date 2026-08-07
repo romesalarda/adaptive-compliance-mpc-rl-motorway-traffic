@@ -1,5 +1,5 @@
 from macroscopic.simulation.environment import Environment
-from macroscopic.statistics import (
+from macroscopic.statistics.base import (
     MacroSimulationResults,
     MacroOverviewSimulationResults,
     MacroRunSimulationResults,

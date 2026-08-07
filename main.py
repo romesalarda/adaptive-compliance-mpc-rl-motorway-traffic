@@ -22,8 +22,10 @@ from sym_metanet import (
 
 import casadi as cs
 import numpy as np
+import matplotlib.pyplot as plt
 
 from macroscopic.visualisation.base import METANETVisualiser
+from macroscopic.statistics import RunSet
 
 def define_network(parameters: BaseParameters, L1_klass: Link, **kwargs) -> Network:
     params = parameters
@@ -66,6 +68,17 @@ def define_network(parameters: BaseParameters, L1_klass: Link, **kwargs) -> Netw
     )
 
 
+# Compact representation of demands for run dumps — keypoints used by create_demands()
+_DEMANDS_META = {
+    "type": "interp",
+    "sources": ["mainline", "on_ramp"],
+    "xp": [0.0, 0.5, 1.0, 1.5, 2.5],
+    "fp": [
+        [2800, 3000, 3500, 3000, 2800],
+        [200, 600, 800, 600, 200],
+    ],
+}
+
 def create_demands(time: np.ndarray) -> np.ndarray:
     return np.stack(
             (
@@ -100,6 +113,7 @@ if __name__ == "__main__":
         raise ValueError("Invalid test type. Please choose from 'vsl', 'rm', or 'base'.")
     
     visualiser = METANETVisualiser()
+    run_set = RunSet("mpc_tests")
 
     if test_type == "vsl":
 
@@ -141,12 +155,14 @@ if __name__ == "__main__":
         solver.setup()
         solver.simulate()
 
-        visualiser.plot_rm_vsl(
+        fig = visualiser.plot_rm_vsl(
             results=solver.simulation_results,
             params=solver.environment.parameters,
             metrics=solver.overview_results,
-            show=True
+            show=False
         )
+        run_set.new_run(solver, run_type=test_type, figures={"rm_vsl": fig}, demands_meta=_DEMANDS_META)
+        plt.show()
 
     elif test_type == "rm":
 
@@ -173,12 +189,14 @@ if __name__ == "__main__":
         solver.setup()
         solver.simulate()
 
-        visualiser.plot_ramp_metering(
+        fig = visualiser.plot_ramp_metering(
             results=solver.simulation_results,
             params=solver.environment.parameters,
             metrics=solver.overview_results,
-            show=True
+            show=False
         )
+        run_set.new_run(solver, run_type=test_type, figures={"ramp_metering": fig}, demands_meta=_DEMANDS_META)
+        plt.show()
 
     elif test_type == "base":
         
@@ -219,12 +237,14 @@ if __name__ == "__main__":
         solver.setup()
         solver.simulate()
 
-        visualiser.plot_dynamics(
+        fig = visualiser.plot_dynamics(
             results=solver.simulation_results,
             params=solver.environment.parameters,
             metrics=solver.overview_results,
-            show=True
+            show=False
         )
+        run_set.new_run(solver, run_type=test_type, figures={"dynamics": fig}, demands_meta=_DEMANDS_META)
+        plt.show()
 
 
 

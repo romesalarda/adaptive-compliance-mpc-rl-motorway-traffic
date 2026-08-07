@@ -9,7 +9,6 @@ import numpy as np
 SymType = TypeVar("SymType", cs.SX, cs.MX)
 
 from macroscopic.logger import LOGGER
-
 class MpcRMSimulation(BaseMPCSolver):
     """
     A class for running simulations using the Model Predictive Control (MPC) solver.

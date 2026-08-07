@@ -14,7 +14,7 @@ SymType = TypeVar("SymType", cs.SX, cs.MX)
 
 from macroscopic.simulation.environment import Environment
 from macroscopic.simulation.model import BaseSimulation
-from macroscopic.statistics import (
+from macroscopic.statistics.base import (
     MacroSimulationResults, 
     MacroOverviewSimulationResults, 
     MacroRunSimulationResults
