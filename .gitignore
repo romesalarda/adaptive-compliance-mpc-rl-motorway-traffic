@@ -2,6 +2,7 @@ __pycache__/
 *.pyc
 /images
 /results
+run_set/
 .venv/
 .env
 venv/
