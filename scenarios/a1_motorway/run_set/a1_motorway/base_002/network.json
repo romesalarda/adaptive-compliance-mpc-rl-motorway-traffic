@@ -1,0 +1,68 @@
+{
+  "name": "A1",
+  "links": {
+    "L1": {
+      "_type": "Link",
+      "N": 4,
+      "L": 1,
+      "lam": 2,
+      "rho_max": 180,
+      "rho_crit": 33.5,
+      "v_free": 112,
+      "a": 1.867,
+      "turnrate": 1.0
+    },
+    "L2": {
+      "_type": "Link",
+      "N": 2,
+      "L": 1,
+      "lam": 2,
+      "rho_max": 180,
+      "rho_crit": 33.5,
+      "v_free": 112,
+      "a": 1.867,
+      "turnrate": 1.0
+    }
+  },
+  "nodes": {
+    "N1": {
+      "_type": "Node"
+    },
+    "N2": {
+      "_type": "Node"
+    },
+    "N3": {
+      "_type": "Node"
+    }
+  },
+  "origins": {
+    "O1": {
+      "_type": "MainstreamOrigin"
+    },
+    "O2": {
+      "_type": "MeteredOnRamp",
+      "capacity": 1800
+    }
+  },
+  "origin_nodes": {
+    "O1": "N1",
+    "O2": "N2"
+  },
+  "destinations": {
+    "D1": {
+      "_type": "Destination"
+    }
+  },
+  "topology": [
+    {
+      "from": "N1",
+      "link": "L1",
+      "to": "N2"
+    },
+    {
+      "from": "N2",
+      "link": "L2",
+      "to": "N3"
+    }
+  ]
+}

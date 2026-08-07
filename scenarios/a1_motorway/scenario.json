@@ -1,0 +1,32 @@
+{
+  "name": "A1 Motorway",
+  "description": "6-segment motorway with on-ramp at node N2",
+  "parameters": {
+    "a": 1.867,
+    "rho_init": [10, 10, 10, 10, 10, 10],
+    "v_free_init": [112, 112, 112, 112, 112, 112],
+    "w_init": [0, 0],
+    "r_init": [1]
+  },
+  "control_parameters": {
+    "vsl": {
+      "alpha_compliance": 0.5,
+      "A": 0.8,
+      "E": 3.0,
+      "V": 120,
+      "v_ctrl": [120, 120, 120, 120],
+      "segments_with_vsl": [0, 1, 2, 3],
+      "minimum_speed_limit": 30,
+      "maximum_speed_limit": 120
+    }
+  },
+  "demands": {
+    "type": "interp",
+    "sources": ["mainline", "on_ramp"],
+    "xp": [0.0, 0.5, 1.0, 1.5, 2.5],
+    "fp": [
+      [2800, 3000, 3500, 3000, 2800],
+      [200, 600, 800, 600, 200]
+    ]
+  }
+}

@@ -5,6 +5,7 @@ from macroscopic.statistics.base import (
     MacroRunSimulationResults,
 )
 from macroscopic.simulation.parameters import BaseParameters, VslParameters
+from macroscopic.logger import LOGGER
 
 import sym_metanet as smn
 import copy
@@ -51,7 +52,6 @@ class BaseSimulation:
             compact = self.function_compactness
 
         self.environment.check()  
-        print(compact)
         F = smn.engine.to_function(
             net=self.environment.network,
             more_out=more_out,
@@ -60,7 +60,7 @@ class BaseSimulation:
         )
 
         for el, acts in self.environment.network.actions.items():
-            print(el.name, len(acts), acts)
+            LOGGER.info(f"Network element '{el.name}' has {len(acts)} actions: {acts}")
 
         return F
     

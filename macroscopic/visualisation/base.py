@@ -41,7 +41,7 @@ logger = logging.getLogger(__name__)
 # Visualizer
 # --------------------------------------------------------------------------- #
 
-class METANETVisualiser:
+class MacroscopicVisualiser:
     """Cohesive plotting utility for METANET ramp-metering / VSL simulation results.
 
     One instance can render any of the four standard result layouts

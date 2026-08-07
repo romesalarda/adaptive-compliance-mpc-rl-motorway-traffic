@@ -1,0 +1,26 @@
+{
+  "name": "a1_motorway",
+  "runs": [
+    {
+      "run_id": "base_001",
+      "run_type": "base",
+      "timestamp": "2026-08-07T16:00:30",
+      "solver_class": "BaseModelSimulation",
+      "path": "C:\\Users\\Romxs\\Documents\\projects\\mpc-rl-motorways-v2\\scenarios\\a1_motorway\\run_set\\a1_motorway\\base_001"
+    },
+    {
+      "run_id": "base_002",
+      "run_type": "base",
+      "timestamp": "2026-08-07T16:03:28",
+      "solver_class": "BaseModelSimulation",
+      "path": "C:\\Users\\Romxs\\Documents\\projects\\mpc-rl-motorways-v2\\scenarios\\a1_motorway\\run_set\\a1_motorway\\base_002"
+    },
+    {
+      "run_id": "base_003",
+      "run_type": "base",
+      "timestamp": "2026-08-07T16:04:11",
+      "solver_class": "BaseModelSimulation",
+      "path": "C:\\Users\\Romxs\\Documents\\projects\\mpc-rl-motorways-v2\\scenarios\\a1_motorway\\run_set\\a1_motorway\\base_003"
+    }
+  ]
+}
