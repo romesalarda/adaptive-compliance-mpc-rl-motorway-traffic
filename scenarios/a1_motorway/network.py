@@ -12,6 +12,11 @@ from macroscopic.simulation.parameters import BaseParameters
 
 
 def build_network(parameters: BaseParameters, control_type: str) -> Network:
+    '''
+    Topology:
+        O1 -- L1 --> N2 -- L2 --> N3
+        O2 -- L2 --> N2
+    '''
     N1 = Node(name="N1")
     N2 = Node(name="N2")
     N3 = Node(name="N3")
@@ -30,7 +35,7 @@ def build_network(parameters: BaseParameters, control_type: str) -> Network:
         name="L1",
     )
 
-    if control_type == "vsl":
+    if control_type in ("vsl", "coordinated"):
         from macroscopic.simulation.parameters import VslParameters
         assert isinstance(parameters, VslParameters)
         L1 = CarlsonLinkWithVsl(

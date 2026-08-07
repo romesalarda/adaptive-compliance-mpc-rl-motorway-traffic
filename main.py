@@ -2,7 +2,7 @@ import argparse
 import numpy as np
 import matplotlib.pyplot as plt
 
-from macroscopic.solvers import MpcRMSimulation, MpcVSLSimulation
+from macroscopic.solvers import MpcRMSimulation, MpcVSLSimulation, MpcCoordinatedSimulation
 from macroscopic.simulation.model import BaseModelSimulation
 from macroscopic.visualisation.base import MacroscopicVisualiser
 from macroscopic.statistics import RunSet
@@ -59,6 +59,27 @@ def _run(scenario: Scenario, control_type: str, visualiser: MacroscopicVisualise
         )
         run_set.new_run(solver, run_type=control_type, figures={"ramp_metering": fig}, demands_meta=scenario.demands_meta)
 
+    elif control_type == "coordinated":
+        solver = MpcCoordinatedSimulation(
+            environment=env,
+            Np=7,
+            Nc=3,
+            M=6,
+            function_compactness=2,
+            initial_conditions={
+                network.origins_by_name["O1"]: {"v_ctrl": np.inf},  # effectively unrestricted
+            },
+        )
+        solver.setup()
+        solver.simulate()
+        fig = visualiser.plot_coordinated_control(
+            results=solver.simulation_results,
+            params=solver.environment.parameters,
+            metrics=solver.overview_results,
+            show=False,
+        )
+        run_set.new_run(solver, run_type=control_type, figures={"coordinated": fig}, demands_meta=scenario.demands_meta)
+
     elif control_type == "base":
         solver = BaseModelSimulation(
             environment=env,
@@ -93,11 +114,11 @@ if __name__ == "__main__":
 
     # # Partially specified — prompts only for missing pieces
     # py main.py --scenario a1_motorway
-    
+
     parser = argparse.ArgumentParser(description="Run macroscopic traffic simulations.")
     parser.add_argument("--scenario", metavar="NAME", help="Scenario folder name")
     mode_group = parser.add_mutually_exclusive_group()
-    mode_group.add_argument("--control", choices=["vsl", "rm", "base"], metavar="TYPE", help="Single run: control type (vsl | rm | base)")
+    mode_group.add_argument("--control", choices=["vsl", "rm", "base", "coordinated"], metavar="TYPE", help="Single run: control type (vsl | rm | base | coordinated)")
     mode_group.add_argument("--batch", action="store_true", help="Batch run: execute all control types in sequence")
     args = parser.parse_args()
 
@@ -126,8 +147,8 @@ if __name__ == "__main__":
             raise ValueError("Mode must be 'single' or 'batch'.")
         if mode == "single":
             control_type = input("Enter control type (vsl | rm | base): ").strip().lower()
-            if control_type not in ("vsl", "rm", "base"):
-                raise ValueError("Invalid control type. Choose from 'vsl', 'rm', 'base'.")
+            if control_type not in ("vsl", "rm", "base", "coordinated"):
+                raise ValueError("Invalid control type. Choose from 'vsl', 'rm', 'base', 'coordinated'.")
 
     visualiser = MacroscopicVisualiser()
     run_set = RunSet(
@@ -138,7 +159,7 @@ if __name__ == "__main__":
     if mode == "single":
         _run(scenario, control_type, visualiser, run_set)
     else:
-        for control_type in ("base", "rm", "vsl"):
+        for control_type in ("base", "rm", "vsl", "coordinated"):
             LOGGER.info(f"\n--- Running: {control_type} ---")
             _run(scenario, control_type, visualiser, run_set)
 

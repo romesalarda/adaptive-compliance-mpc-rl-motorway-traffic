@@ -18,6 +18,16 @@
       "segments_with_vsl": [0, 1, 2, 3],
       "minimum_speed_limit": 30,
       "maximum_speed_limit": 120
+    },
+    "coordinated": {
+      "alpha_compliance": 0.5,
+      "A": 0.8,
+      "E": 3.0,
+      "V": 120,
+      "v_ctrl": [120, 120, 120, 120],
+      "segments_with_vsl": [0, 1, 2, 3],
+      "minimum_speed_limit": 30,
+      "maximum_speed_limit": 120
     }
   },
   "demands": {

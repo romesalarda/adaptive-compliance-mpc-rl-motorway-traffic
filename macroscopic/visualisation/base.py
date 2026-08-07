@@ -235,21 +235,22 @@ class MacroscopicVisualiser:
                                   metrics: MacroOverviewSimulationResults, title: Optional[str] = None,
                                   show: bool = False) -> Figure:
         """Plot coordinated RM + VSL control results (compact layout)."""
-        if results.VSL_SPEED is None:
-            raise ValueError("results.VSL_SPEED is required for the coordinated-control plot")
+
         fig, axs = self._figure(4, 2, (14, 10), title or "MPC Coordinated Control - Ramp Metering + VSL")
         seg_colors, seg_names, orig_colors, orig_names = self._palette(results)
         vsl_colors = self._vsl_colors(results.v_ctrl.shape[1])
         vsl_names = [f"VSL Seg {i + 3}" for i in range(results.v_ctrl.shape[1])]
 
-        self._plot_series(axs[0, 0], results.time, results.v, seg_colors, seg_names,
+        self._plot_series(axs[0, 0], params.time, results.v, seg_colors, seg_names,
                            "Speed [km/h]", "Speed Profile", ncol=2)
-        self._plot_series(axs[0, 1], results.time, results.q, seg_colors, seg_names,
+        self._plot_series(axs[0, 1], params.time, results.q, seg_colors, seg_names,
                            "Flow [veh/h]", "Flow Profile", ncol=2)
         self._density_panel(axs[1, 0], results, params, seg_colors, seg_names)
-        self._plot_series(axs[1, 1], results.time, results.w, orig_colors, orig_names,
+        self._plot_series(axs[1, 1], params.time, results.w, orig_colors, orig_names,
                            "Queue [veh]", "Queue Length", linewidth=2, alpha=0.15)
-        self._plot_series(axs[2, 0], results.time, results.q_on, orig_colors, orig_names,
+        self._plot_series(axs[2, 0], params.time, results.q_on, orig_colors, orig_names,
+                            "Origin Flow [veh/h]", "Origin Flow", linewidth=2, alpha=0.15)
+        self._plot_series(axs[2, 0], params.time, results.q_on, orig_colors, orig_names,
                            "Origin Flow [veh/h]", "Origin Flow", linewidth=2, alpha=0.15)
         self._vsl_panel(axs[2, 1], results, params, vsl_colors, vsl_names)
 
@@ -258,7 +259,7 @@ class MacroscopicVisualiser:
         else:
             axs[3, 0].set_xlabel("Time [h]", fontweight="bold")
 
-        self._plot_series(axs[3, 1], results.time, results.demands, orig_colors, orig_names,
+        self._plot_series(axs[3, 1], params.time, results.demands, orig_colors, orig_names,
                            "Origin Demands [veh/h]", "Origin Demands", linewidth=2, alpha=0.15)
         axs[3, 1].set_xlabel("Time [h]", fontweight="bold")
 

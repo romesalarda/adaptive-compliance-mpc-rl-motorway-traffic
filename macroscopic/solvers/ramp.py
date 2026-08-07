@@ -1,6 +1,5 @@
 from macroscopic.solvers.base import BaseMPCSolver
 
-
 from typing import TypeVar
 
 import casadi as cs

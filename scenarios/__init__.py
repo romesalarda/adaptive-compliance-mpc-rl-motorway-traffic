@@ -21,6 +21,7 @@ _PARAMS_REGISTRY: dict[str, type[BaseParameters]] = {
     "base": BaseParameters,
     "rm": BaseParameters,
     "vsl": VslParameters,
+    "coordinated": VslParameters,
 }
 
 
