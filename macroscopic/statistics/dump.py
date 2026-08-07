@@ -9,6 +9,8 @@ from typing import Any, Optional
 
 import numpy as np
 
+from macroscopic.statistics.base import MacroSimulationResults
+
 # ---------------------------------------------------------------------------
 # JSON-safe type conversion
 # ---------------------------------------------------------------------------
@@ -195,6 +197,78 @@ def _serialize_statistics(sim_results, overview_results, run_results) -> dict:
 
 
 # ---------------------------------------------------------------------------
+# HDF5 timeseries dump / load
+# ---------------------------------------------------------------------------
+
+# Channels stored verbatim; absent (None / empty) channels are skipped.
+_HDF5_CHANNELS = ("rho", "v", "w", "q", "q_on", "v_ctrl", "r")
+
+
+def _dump_timeseries_hdf5(sim_results, path: Path) -> None:
+    """Write all MacroSimulationResults arrays to an HDF5 file for later replay."""
+    import h5py
+
+    with h5py.File(path, "w") as hf:
+        ch = hf.create_group("channels")
+        for name in _HDF5_CHANNELS:
+            arr = getattr(sim_results, name, None)
+            if arr is None:
+                continue
+            a = np.asarray(arr, dtype=np.float64)
+            if a.size == 0:
+                continue
+            ch.create_dataset(name, data=a, compression="gzip", compression_opts=4)
+
+        demands = getattr(sim_results, "demands", None)
+        if demands is not None:
+            a = np.asarray(demands, dtype=np.float64)
+            if a.size > 0:
+                hf.create_dataset("demands", data=a, compression="gzip", compression_opts=4)
+
+        meta = hf.create_group("metadata")
+        origin_names = getattr(sim_results, "origin_names", None) or []
+        # h5py requires a fixed-length or variable-length string dtype
+        dt = h5py.string_dtype()
+        meta.create_dataset("origin_names", data=np.array(origin_names, dtype=object), dtype=dt)
+
+
+def load_timeseries(run_dir: str) -> MacroSimulationResults:
+    """
+    Reconstruct a :class:`MacroSimulationResults` from a run's ``timeseries.h5`` file.
+
+    Args:
+        run_dir: Path to a run folder produced by :meth:`RunSet.new_run`.
+
+    Returns:
+        Populated ``MacroSimulationResults`` with all squeezed arrays restored.
+    """
+    import h5py
+
+    path = Path(run_dir) / "timeseries.h5"
+    if not path.exists():
+        raise FileNotFoundError(f"timeseries.h5 not found in '{run_dir}'")
+
+    kwargs: dict = {}
+    with h5py.File(path, "r") as hf:
+        ch = hf.get("channels", {})
+        for name in _HDF5_CHANNELS:
+            if name in ch:
+                kwargs[name] = np.array(ch[name])
+
+        if "demands" in hf:
+            kwargs["demands"] = np.array(hf["demands"])
+
+        origin_names = []
+        if "metadata" in hf and "origin_names" in hf["metadata"]:
+            origin_names = [n.decode() if isinstance(n, bytes) else n
+                            for n in hf["metadata"]["origin_names"]]
+
+    result = MacroSimulationResults(**kwargs)
+    result.origin_names = origin_names
+    return result
+
+
+# ---------------------------------------------------------------------------
 # Helpers
 # ---------------------------------------------------------------------------
 
@@ -331,6 +405,9 @@ class RunSet:
                 solver.run_results,
             ),
         )
+
+        # ---- timeseries.h5 ----
+        _dump_timeseries_hdf5(solver.simulation_results, run_dir / "timeseries.h5")
 
         # ---- figures/ ----
         if figures:

@@ -1,6 +1,7 @@
 __pycache__/
 *.pyc
 /images
+/results
 .venv/
 .env
 venv/
