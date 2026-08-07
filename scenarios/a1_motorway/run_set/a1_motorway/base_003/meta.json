@@ -1,9 +1,0 @@
-{
-  "run_id": "base_003",
-  "run_type": "base",
-  "timestamp": "2026-08-07T16:04:11",
-  "solver_class": "BaseModelSimulation",
-  "environment_id": "763e0a1e-668d-4790-bd5b-b39635643974",
-  "network_name": "A1",
-  "simulation_time_s": 0.0
-}
