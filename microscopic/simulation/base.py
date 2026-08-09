@@ -1,21 +1,166 @@
+from __future__ import annotations
+
+import json
+import multiprocessing
+import os
+from dataclasses import dataclass, field
+from pathlib import Path
+from typing import TYPE_CHECKING, Callable, Optional
+
+import traci
+
+if TYPE_CHECKING:
+    from microscopic.controller.base import BaseSUMOController
+    from microscopic.simulation.environment import MicroEnvironment
+    from microscopic.statistics.base import MicroSimulationResults
+
+
+@dataclass
+class SimulationConfig:
+    """All parameters needed to launch and run one SUMO simulation."""
+
+    sumo_cfg: str          # absolute or relative path to .sumocfg
+    duration_steps: int    # total simulation steps (sumo_duration_s / step_length)
+    step_length: float = 0.1
+    seed: int = 42
+    use_gui: bool = False
+    port: int = 8813       # TraCI TCP port — must be unique across concurrent runs
+    extra_args: list[str] = field(default_factory=list)
+
+    @property
+    def sumo_cmd(self) -> list[str]:
+        binary = "sumo-gui" if self.use_gui else "sumo"
+        return [
+            binary,
+            "-c", self.sumo_cfg,
+            "--step-length", str(self.step_length),
+            "--seed", str(self.seed),
+            "--no-step-log", "true",
+            *self.extra_args,
+        ]
+
+    @classmethod
+    def from_scenario(
+        cls,
+        scenario_path: str,
+        no_gui: bool = False,
+        port: int = 8813,
+        **overrides,
+    ) -> "SimulationConfig":
+        """Build config from a scenario folder's scenario.json micro block."""
+        config_path = Path(scenario_path) / "scenario.json"
+        with config_path.open() as f:
+            config = json.load(f)
+        micro = config["micro"]
+        sumo_cfg = str(Path(scenario_path) / micro["sumo_config"])
+        return cls(
+            sumo_cfg=sumo_cfg,
+            duration_steps=int(micro.get("duration_steps", round(9000 / micro["step_length"]))),
+            step_length=float(micro["step_length"]),
+            use_gui=not no_gui,
+            port=port,
+            **overrides,
+        )
 
 
 class SUMOBaseSimulation:
-    def __init__(self, config):
+
+    def __init__(
+        self,
+        config: SimulationConfig,
+        env: MicroEnvironment,
+        controller: BaseSUMOController,
+        stats: MicroSimulationResults,
+    ):
         self.config = config
-        self.simulation_time = 0
+        self.env = env
+        self.controller = controller
+        self.stats = stats
+        self.simulation_time: float = 0.0
+        self._step: int = 0
 
-    def step(self):
-        raise NotImplementedError("Subclasses should implement this method.")
+    # ------------------------------------------------------------------
+    # Lifecycle
+    # ------------------------------------------------------------------
 
-    def setup(self):
-        pass
+    def setup(self) -> None:
+        self.check()
+        traci.start(self.config.sumo_cmd, port=self.config.port)
+        self.env.setup()
+        self.env.check()
 
-    def check(self):
-        pass
+    def check(self) -> None:
+        if "SUMO_HOME" not in os.environ:
+            raise EnvironmentError("SUMO_HOME environment variable is not set.")
+        if not Path(self.config.sumo_cfg).exists():
+            raise FileNotFoundError(f"SUMO config not found: {self.config.sumo_cfg}")
 
-    def run(self):
-        pass
+    def step(self) -> None:
+        traci.simulationStep()
+        self.env.update()
+        self.env.step_metering()
 
-    def post_run(self):
-        pass
+        was_solve = self.controller.should_solve(self._step)
+        state = self.env.collect_state()
+        self.controller.on_step(self._step, self.env, state)
+
+        self.stats.record_step(
+            step=self._step,
+            time=self.simulation_time,
+            state=state,
+            controls=self.controller._last_controls if was_solve else None,
+            solve_time=self.controller._last_solve_time if was_solve else None,
+        )
+
+        self.simulation_time += self.config.step_length
+        self._step += 1
+
+    def run(self) -> None:
+        for _ in range(self.config.duration_steps):
+            # stop early only if SUMO signals all vehicles have left and cleared
+            if self._step > 0 and traci.simulation.getMinExpectedNumber() == 0:
+                break
+            self.step()
+
+    def post_run(self) -> None:
+        traci.close()
+        self.stats.finalize(
+            step_length=self.config.step_length,
+            n_steps=self._step,
+        )
+
+    # ------------------------------------------------------------------
+    # Batch / parallel execution
+    # ------------------------------------------------------------------
+
+    @classmethod
+    def run_in_process(
+        cls,
+        factory: Callable[[], "SUMOBaseSimulation"],
+        result_queue: Optional[multiprocessing.Queue] = None,
+    ) -> multiprocessing.Process:
+        """
+        Spawn a simulation in an isolated process.
+
+        `factory` must be a module-level callable (picklable on Windows spawn).
+        Each process owns its TraCI connection on the port set in SimulationConfig.
+        """
+        p = multiprocessing.Process(
+            target=_simulation_worker,
+            args=(factory, result_queue),
+        )
+        p.start()
+        return p
+
+
+# Module-level worker required for multiprocessing.spawn on Windows
+def _simulation_worker(
+    factory: Callable[[], SUMOBaseSimulation],
+    result_queue: Optional[multiprocessing.Queue],
+) -> None:
+    sim = factory()
+    sim.setup()
+    sim.run()
+    sim.post_run()
+    if result_queue is not None:
+        result_queue.put(sim.stats)

@@ -1,5 +1,5 @@
 {
-  "name": "A1 Motorway",
+  "name": "A2 Motorway",
   "description": "6-segment motorway with on-ramp at node N2",
   "parameters": {
     "a": 1.867,
@@ -49,5 +49,28 @@
       [3500, 3500, 3500, 1000, 1000],
       [500, 1500, 1500, 500, 500]
     ]
+  },
+  "micro": {
+    "sumo_config": "micronet/motorway.sumocfg",
+    "step_length": 0.1,
+    "duration_steps": 90000,
+    "solve_interval_steps": 100,
+    "n_segments": 6,
+    "n_origins": 2,
+    "edge_to_segment_map": {
+      "seg1": 0,
+      "seg2": 1,
+      "seg3": 2,
+      "seg4": 3,
+      "seg5": 4,
+      "seg6": 5
+    },
+    "origin_w_map": {
+      "ramp_approach": 1
+    },
+    "vsl_edge_ids": ["seg1", "seg2", "seg3", "seg4"],
+    "ramp_tl_map": {
+      "ramp_approach": "ramp_meter"
+    }
   }
 }

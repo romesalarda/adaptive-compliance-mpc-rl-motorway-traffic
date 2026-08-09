@@ -13,6 +13,7 @@ from macroscopic.simulation.parameters import BaseParameters, VslParameters
 
 if TYPE_CHECKING:
     from sym_metanet import Network
+    from microscopic.simulation.environment import MicroEnvironment
 
 _SCENARIOS_DIR = Path(__file__).parent
 
@@ -46,6 +47,29 @@ class Scenario:
     # ------------------------------------------------------------------
     # Public API
     # ------------------------------------------------------------------
+
+    @property
+    def micro_config(self) -> dict:
+        """Raw micro block from scenario.json; raises if missing."""
+        cfg = self._config.get("micro")
+        if cfg is None:
+            raise KeyError(f"Scenario '{self.name}' has no 'micro' block in scenario.json")
+        return cfg
+
+    def build_micro_environment(self) -> "MicroEnvironment":
+        """Instantiate a MicroEnvironment from the scenario's 'micro' block."""
+        from microscopic.simulation.environment import MicroEnvironment
+
+        cfg = self.micro_config
+        return MicroEnvironment(
+            edge_to_segment_map={k: int(v) for k, v in cfg["edge_to_segment_map"].items()},
+            origin_w_map={k: int(v) for k, v in cfg["origin_w_map"].items()},
+            n_segments=int(cfg["n_segments"]),
+            n_origins=int(cfg["n_origins"]),
+            step_length=float(cfg["step_length"]),
+            vsl_edge_ids=list(cfg.get("vsl_edge_ids", [])),
+            ramp_tl_map=dict(cfg.get("ramp_tl_map", {})),
+        )
 
     def build_environment(self, control_type: str, **kwargs) -> MacroEnvironment:
         """Merge parameters, instantiate the right Parameters class, build network and demands."""
