@@ -71,6 +71,7 @@
     "vsl_edge_ids": ["seg1", "seg2", "seg3", "seg4"],
     "ramp_tl_map": {
       "ramp_approach": "ramp_meter"
-    }
+    },
+    "output_subdirs": ["detectors"]
   }
 }

@@ -25,6 +25,8 @@ class SimulationConfig:
     seed: int = 42
     use_gui: bool = False
     port: int = 8813       # TraCI TCP port — must be unique across concurrent runs
+    # dirs to create relative to the sumocfg before SUMO starts (e.g. detector output dirs)
+    sumo_output_subdirs: list[str] = field(default_factory=list)
     extra_args: list[str] = field(default_factory=list)
 
     @property
@@ -38,6 +40,12 @@ class SimulationConfig:
             "--no-step-log", "true",
             *self.extra_args,
         ]
+
+    def prepare_output_dirs(self) -> None:
+        """Create output sub-directories next to the sumocfg before SUMO starts."""
+        sumo_dir = Path(self.sumo_cfg).parent
+        for sub in self.sumo_output_subdirs:
+            (sumo_dir / sub).mkdir(parents=True, exist_ok=True)
 
     @classmethod
     def from_scenario(
@@ -59,6 +67,7 @@ class SimulationConfig:
             step_length=float(micro["step_length"]),
             use_gui=not no_gui,
             port=port,
+            sumo_output_subdirs=list(micro.get("output_subdirs", [])),
             **overrides,
         )
 
@@ -85,6 +94,7 @@ class SUMOBaseSimulation:
 
     def setup(self) -> None:
         self.check()
+        self.config.prepare_output_dirs()
         traci.start(self.config.sumo_cmd, port=self.config.port)
         self.env.setup()
         self.env.check()

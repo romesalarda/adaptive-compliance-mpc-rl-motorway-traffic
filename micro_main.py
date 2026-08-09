@@ -91,11 +91,11 @@ def run_single(
         no_gui=no_gui,
         port=port,
     )
-    # add SUMO output files to the command
+    # absolute paths so SUMO writes named outputs directly into the run directory
     sim_config.extra_args = [
-        "--tripinfo-output", str(out_dir / "tripinfo.xml"),
-        "--collision-output", str(out_dir / "collision.xml"),
-        "--queue-output", str(out_dir / "queue.xml"),
+        "--tripinfo-output", str(out_dir.resolve() / "tripinfo.xml"),
+        "--collision-output", str(out_dir.resolve() / "collision.xml"),
+        "--queue-output", str(out_dir.resolve() / "queue.xml"),
     ]
 
     stats = MicroSimulationResults(

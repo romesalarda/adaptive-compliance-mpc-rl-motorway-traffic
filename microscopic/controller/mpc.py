@@ -64,10 +64,14 @@ class MPCController(BaseSUMOController):
     def _get_demands_forecast(self) -> np.ndarray:
         """Slice the macro demand array over the MPC horizon from the current step."""
         horizon = getattr(self.solver, "Np", 7) * getattr(self.solver, "M", 6)
-        demands = self.macro_env.demands
-        d_hat = demands[self._current_step: self._current_step + horizon, :]
+
+        d_hat = self.macro_env.demands[self._current_step : self._current_step + horizon, :]
         if d_hat.shape[0] < horizon:
-            d_hat = np.pad(d_hat, ((0, horizon - d_hat.shape[0]), (0, 0)), "edge")
+            pad_width = horizon - d_hat.shape[0]
+            if d_hat.shape[0] == 0:
+                d_hat = np.pad(d_hat, ((0, pad_width), (0, 0)), "constant")
+            else:
+                d_hat = np.pad(d_hat, ((0, pad_width), (0, 0)), "edge")
         return d_hat
 
     def on_step(self, step: int, env: MicroEnvironment, state: dict) -> None:

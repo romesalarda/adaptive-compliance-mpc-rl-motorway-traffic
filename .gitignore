@@ -2,6 +2,7 @@ __pycache__/
 *.pyc
 /images
 /results
+/runs
 run_set/
 macro-sim-runs/
 .venv/
