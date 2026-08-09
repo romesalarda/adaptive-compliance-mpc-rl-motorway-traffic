@@ -4,7 +4,7 @@ from sym_metanet import Network, engines, Network
 import uuid
 
 
-class Environment:
+class MacroEnvironment:
     '''
     Encapsulates the environment for the macroscopic simulation, including parameters, network, and demands.
     '''

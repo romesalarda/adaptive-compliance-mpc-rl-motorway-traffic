@@ -1,6 +1,6 @@
 from sym_metanet import MeteredOnRamp
 
-from macroscopic.simulation.environment import Environment
+from macroscopic.simulation.environment import MacroEnvironment
 from macroscopic.simulation.parameters import VslParameters
 from macroscopic.solvers.base import BaseMPCSolver
 
@@ -11,7 +11,7 @@ import casadi as cs
 
 SymType = TypeVar("SymType", cs.SX, cs.MX)
 
-from macroscopic.simulation.environment import Environment
+from macroscopic.simulation.environment import MacroEnvironment
 from macroscopic.logger import LOGGER
 
 class MpcVSLSimulation(BaseMPCSolver):
@@ -20,7 +20,7 @@ class MpcVSLSimulation(BaseMPCSolver):
     Inherits from BaseMPCSolver and provides methods for simulating traffic flow dynamics over time with Variable Speed Limits (VSL).
     """
 
-    def __init__(self, environment: Environment, Np=None, Nc=None, M=None, **kwargs):
+    def __init__(self, environment: MacroEnvironment, Np=None, Nc=None, M=None, **kwargs):
         super().__init__(environment, Np, Nc, M, **kwargs)
         self._v_ctrl_last = None  # Initialize the last speed limit control variable
         self._v_ctrl = None  # Initialize the speed limit control variable

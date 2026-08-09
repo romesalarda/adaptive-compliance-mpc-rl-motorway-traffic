@@ -165,7 +165,7 @@ if __name__ == "__main__":
     )
 
     if mode == "single":
-        _run(scenario, control_type, visualiser, run_set, linkKlass=LinkWithVsl)
+        _run(scenario, control_type, visualiser, run_set, linkKlass=FrejoLinkWithVsl)
     else:
         for control_type in ("base", "rm", "vsl", "coordinated"):
             LOGGER.info(f"\n--- Running: {control_type} ---")

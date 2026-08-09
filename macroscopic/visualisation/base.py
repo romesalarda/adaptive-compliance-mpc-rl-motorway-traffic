@@ -32,7 +32,7 @@ from matplotlib.figure import Figure
 
 from macroscopic.statistics.base import MacroOverviewSimulationResults, MacroSimulationResults
 from macroscopic.simulation.parameters import BaseParameters, VslParameters
-from macroscopic.simulation.environment import Environment
+from macroscopic.simulation.environment import MacroEnvironment
 
 logger = logging.getLogger(__name__)
 

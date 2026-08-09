@@ -1,4 +1,4 @@
-from macroscopic.simulation.environment import Environment
+from macroscopic.simulation.environment import MacroEnvironment
 from macroscopic.statistics.base import (
     MacroSimulationResults,
     MacroOverviewSimulationResults,
@@ -20,7 +20,7 @@ class BaseSimulation:
     the setup and simulate methods.
     '''
 
-    def __init__(self, environment: Environment, function_compactness: int = None):
+    def __init__(self, environment: MacroEnvironment, function_compactness: int = None):
         '''
         Initializes the BaseSimulation class.
 
@@ -131,7 +131,7 @@ class BaseModelSimulation(BaseSimulation):
     Base model simulation, no MPC, just pure simulation of the model with given parameters and initial conditions.
     '''
     def __init__(self, 
-                 environment: Environment, 
+                 environment: MacroEnvironment, 
                  function_compactness: int = None, **kwargs):
         super().__init__(environment, function_compactness)
         self.kwargs = kwargs  # Store additional keyword arguments for use in the simulation

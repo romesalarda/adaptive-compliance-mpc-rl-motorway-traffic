@@ -10,7 +10,7 @@ import numpy as np
 SymType = TypeVar("SymType", cs.SX, cs.MX)
 
 
-from macroscopic.simulation.environment import Environment
+from macroscopic.simulation.environment import MacroEnvironment
 from macroscopic.simulation.model import BaseSimulation
 from macroscopic.statistics.base import (
     MacroSimulationResults, 
@@ -41,7 +41,7 @@ class BaseMPCSolver(BaseSimulation):
     DEFAULT_SOLVER = "ipopt"
 
     def __init__(self, 
-            environment: Environment,
+            environment: MacroEnvironment,
             Np=None,
             Nc=None,
             M=None,

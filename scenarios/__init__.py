@@ -8,7 +8,7 @@ from typing import TYPE_CHECKING
 
 import numpy as np
 
-from macroscopic.simulation.environment import Environment
+from macroscopic.simulation.environment import MacroEnvironment
 from macroscopic.simulation.parameters import BaseParameters, VslParameters
 
 if TYPE_CHECKING:
@@ -47,7 +47,7 @@ class Scenario:
     # Public API
     # ------------------------------------------------------------------
 
-    def build_environment(self, control_type: str, **kwargs) -> Environment:
+    def build_environment(self, control_type: str, **kwargs) -> MacroEnvironment:
         """Merge parameters, instantiate the right Parameters class, build network and demands."""
         if control_type not in _PARAMS_REGISTRY:
             raise ValueError(
@@ -67,7 +67,7 @@ class Scenario:
         network = self._build_network(parameters, control_type, **kwargs)
         demands = self._build_demands(parameters.time)
 
-        return Environment(
+        return MacroEnvironment(
             parameters=parameters, 
             network=network, 
             demands=demands,

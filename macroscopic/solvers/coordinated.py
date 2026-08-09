@@ -1,6 +1,5 @@
 from sym_metanet import MeteredOnRamp
 
-from macroscopic.simulation.environment import Environment
 from macroscopic.simulation.parameters import VslParameters
 from macroscopic.solvers.vsl import MpcVSLSimulation
 
@@ -11,7 +10,7 @@ import casadi as cs
 
 SymType = TypeVar("SymType", cs.SX, cs.MX)
 
-from macroscopic.simulation.environment import Environment
+from macroscopic.simulation.environment import MacroEnvironment
 from macroscopic.logger import LOGGER
 
 class MpcCoordinatedSimulation(MpcVSLSimulation):
