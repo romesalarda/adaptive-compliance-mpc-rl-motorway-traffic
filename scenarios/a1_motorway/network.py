@@ -54,15 +54,24 @@ def build_network(parameters: BaseParameters, control_type: str, linkKlass: Link
     if control_type in ("vsl", "coordinated"):
         from macroscopic.simulation.parameters import VslParameters
         assert isinstance(parameters, VslParameters)
-        L1 = linkKlass(
-            **_common,
-            a=parameters.a,
-            segments_with_vsl=parameters.segments_with_vsl,
-            alpha=parameters.alpha_compliance,
-            V=parameters.V,
-            A=parameters.A,
-            E=parameters.E,
-        )
+
+        if linkKlass not in (CarlsonLinkWithVsl, FrejoLinkWithVsl):
+            L1 = linkKlass(
+                **_common,
+                a=parameters.a,
+                segments_with_vsl=parameters.segments_with_vsl,
+                alpha=parameters.alpha_compliance,
+            )
+        else:
+            L1 = linkKlass(
+                **_common,
+                a=parameters.a,
+                segments_with_vsl=parameters.segments_with_vsl,
+                alpha=parameters.alpha_compliance,
+                V=parameters.V,
+                A=parameters.A,
+                E=parameters.E,
+            )
     else:
         L1 = Link[cs.SX](
             **_common,

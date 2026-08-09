@@ -64,11 +64,17 @@ class MpcCoordinatedSimulation(MpcVSLSimulation):
         congestion_indicator = cs.fmax(0, self.w[1, 0] - queue_threshold)
         seg4_safety_penalty = seg4_safety_weight * congestion_indicator * cs.sumsqr(self.v_ctrl[seg_4_idx, :] / parameters.v_free)
 
+        # self.MPC.minimize(
+        #     parameters.T * tts_term
+        #     + r_weight * cs.sumsqr(cs.diff(cs.horzcat(self.r_last, self.r)))
+        #     + temporal_smoothness
+        #     + seg4_safety_penalty
+        # )
+
         self.MPC.minimize(
-            parameters.T * tts_term
-            + r_weight * cs.sumsqr(cs.diff(cs.horzcat(self.r_last, self.r)))
+            tts_term
             + temporal_smoothness
-            + seg4_safety_penalty
+            + r_weight * cs.sumsqr(cs.diff(cs.horzcat(self.r_last, self.r)))
         )
 
     def _simulate(self):
@@ -104,7 +110,7 @@ class MpcCoordinatedSimulation(MpcVSLSimulation):
 
                 v_ctrl_py = [float(v_ctrl_last[i]) for i in range(v_ctrl_last.numel())]
                 v_ctrl_last = [round(v / 10) * 10 for v in v_ctrl_py]
-                
+
                 r_last = sol.vals["r"][:, 0]
             
             rho, v, w, q, q_on = self.get_next_states(rho, v, w, v_ctrl_last, r_last, k, F=F)

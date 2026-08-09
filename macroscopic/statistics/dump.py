@@ -385,9 +385,9 @@ class RunSet:
             "simulation_time_s": solver.run_results.total_simulation_time,
 
             "solver_config": _numpy_to_python({
-                "Np": solver.Np,
-                "Nc": solver.Nc,
-                "M": solver.M,
+                "Np": getattr(solver, "Np", None),
+                "Nc": getattr(solver, "Nc", None),
+                "M": getattr(solver, "M", None),
             }),
         }
         if extra_meta:

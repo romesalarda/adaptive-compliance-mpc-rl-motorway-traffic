@@ -6,7 +6,7 @@ from macroscopic.solvers import MpcRMSimulation, MpcVSLSimulation, MpcCoordinate
 from macroscopic.simulation.model import BaseModelSimulation
 from macroscopic.visualisation.base import MacroscopicVisualiser
 from macroscopic.statistics import RunSet
-from macroscopic.vsl import CarlsonLinkWithVsl, FrejoLinkWithVsl
+from macroscopic.vsl import CarlsonLinkWithVsl, FrejoLinkWithVsl, LinkWithVsl
 
 from scenarios import Scenario
 
@@ -69,9 +69,9 @@ def _run(scenario: Scenario, control_type: str, visualiser: MacroscopicVisualise
     elif control_type == "coordinated":
         solver = MpcCoordinatedSimulation(
             environment=env,
-            Np=5,
-            Nc=4,
-            M=30,
+            Np=7,
+            Nc=5,
+            M=6,
             function_compactness=2,
             initial_conditions={
                 network.origins_by_name["O1"]: {"v_ctrl": np.inf},  # effectively unrestricted
@@ -165,7 +165,7 @@ if __name__ == "__main__":
     )
 
     if mode == "single":
-        _run(scenario, control_type, visualiser, run_set, linkKlass=FrejoLinkWithVsl)
+        _run(scenario, control_type, visualiser, run_set, linkKlass=LinkWithVsl)
     else:
         for control_type in ("base", "rm", "vsl", "coordinated"):
             LOGGER.info(f"\n--- Running: {control_type} ---")
