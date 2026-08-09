@@ -58,6 +58,8 @@ class Scenario:
         params_cls = _PARAMS_REGISTRY[control_type]
         params_dict = dict(self._config.get("parameters", {}))
         overrides = self._config.get("control_parameters", {}).get(control_type, {})
+        objective_weights = overrides.pop("objective_weights", {})
+
         params_dict.update(overrides)
 
         parameters = params_cls(**params_dict)
@@ -65,7 +67,12 @@ class Scenario:
         network = self._build_network(parameters, control_type)
         demands = self._build_demands(parameters.time)
 
-        return Environment(parameters=parameters, network=network, demands=demands)
+        return Environment(
+            parameters=parameters, 
+            network=network, 
+            demands=demands,
+            objective_weights=objective_weights
+            )
 
     @property
     def demands_meta(self) -> dict:

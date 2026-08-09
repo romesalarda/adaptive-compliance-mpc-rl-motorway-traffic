@@ -3,6 +3,7 @@ __pycache__/
 /images
 /results
 run_set/
+macro-sim-runs/
 .venv/
 .env
 venv/

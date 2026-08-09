@@ -79,11 +79,8 @@ class BaseMPCSolver(BaseSimulation):
         self.number_of_origins = len(self.environment.network.origins)
 
         self.kwargs = kwargs  # Store any additional keyword arguments for future use
-        self.objective_weights = kwargs.get(
-            "objective_weights", {
-                "temporal_smoothness": 10
-            }
-        )
+        self.objective_weights = environment.objective_weights if hasattr(environment, 'objective_weights') else {}
+        
         self.queue_upper_bound = kwargs.get("queue_upper_bound", None)  # Upper bound for the congestion queue, can be adjusted as needed 
         self.function_compactness = kwargs.get("function_compactness", 1)  # Compactness level for the function representation, can be adjusted as needed
     
@@ -217,6 +214,21 @@ class BaseMPCSolver(BaseSimulation):
         if not isinstance(value, dict):
             raise ValueError("objective_weights must be a dictionary.")
         self._objective_weights = value
+
+    def use_weight_parameter(self, weight_name: str, default_value: float = 1.0):
+        """
+        Use a weight parameter for the objective function. If the weight is not specified in the objective_weights dictionary, it will be set to the default value.
+
+        Args:
+            weight_name (str): The name of the weight parameter.
+            default_value (float): The default value to use if the weight is not specified.
+
+        Returns:
+            float: The weight value to be used in the objective function.
+        """
+
+        self.objective_weights.setdefault(weight_name, default_value)
+        return self.objective_weights[weight_name]
 
     #### mpc methods
 

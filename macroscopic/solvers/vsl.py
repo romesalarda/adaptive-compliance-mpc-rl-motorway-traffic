@@ -50,7 +50,7 @@ class MpcVSLSimulation(BaseMPCSolver):
     def init_control_states(self):
 
         parameters: VslParameters = self.environment.parameters
-        
+
         self.v_ctrl, _ = self.MPC.action(
             "v_ctrl", len(parameters.segments_with_vsl),
             lb=parameters.minimum_speed_limit, 
@@ -58,15 +58,21 @@ class MpcVSLSimulation(BaseMPCSolver):
         ) 
 
         n_metered = sum(1 for o in self.environment.network.origins if isinstance(o, MeteredOnRamp))
-        self.r, _ = self.MPC.action("r", n_metered, lb=1, ub=1)
+        self.r, _ = self.MPC.action(
+            "r", 
+            n_metered, 
+            lb=self.use_weight_parameter("r_lower_bound", 1),
+            ub=self.use_weight_parameter("r_upper_bound", 1)
+        )
         
         self.v_ctrl_last = self.MPC.parameter("v_ctrl_last", (self.v_ctrl.size1(), 1))
 
     def init_constraints(self):
 
-        delta_v_max = 10  # Max drop allowed
-        delta_v_increase = 0  # Change to 0 to allow flat profiles
-        max_temporal_change = 10 # i.e. between time steps
+
+        delta_v_max = self.use_weight_parameter("delta_v_max", 10)  # Max drop allowed
+        delta_v_increase = self.use_weight_parameter("delta_v_increase", 0)  # Change to 0 to allow flat profiles
+        max_temporal_change = self.use_weight_parameter("max_temporal_change", 10) # i.e. between time steps
         mpc = self.MPC
         v_ctrl = self.v_ctrl
         v_ctrl_last = self.v_ctrl_last
@@ -100,10 +106,8 @@ class MpcVSLSimulation(BaseMPCSolver):
     def init_objective(self):
 
         parameters: VslParameters = self.environment.parameters
-        temporal_smoothness_weight = self.objective_weights.get("temporal_smoothness", 10)
+        temporal_smoothness_weight = self.use_weight_parameter("temporal_smoothness", 10)
         temporal_smoothness = temporal_smoothness_weight * cs.sumsqr(cs.diff(cs.horzcat(self.v_ctrl_last, self.v_ctrl), 1, 1) / parameters.v_free)
-
-        # TTT = sum of all segment densities + queue lengths, multiplied by T
 
         self.MPC.minimize(
             parameters.T * cs.sum2(cs.sum1(self.rho * parameters.L * parameters.lanes) + cs.sum1(self.w))

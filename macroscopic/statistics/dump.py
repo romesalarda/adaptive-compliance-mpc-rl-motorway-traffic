@@ -350,6 +350,7 @@ class RunSet:
         figures: Optional[dict] = None,
         demands_meta: Optional[dict] = None,
         extra_meta: Optional[dict] = None,
+        save_objective_weights: bool = True,
     ) -> str:
         """
         Serialise a completed simulation run to disk.
@@ -385,9 +386,13 @@ class RunSet:
         }
         if extra_meta:
             meta.update(extra_meta)
+
+        if save_objective_weights and hasattr(solver, "objective_weights"):
+            meta["objective_weights"] = _numpy_to_python(solver.objective_weights)
+            
         _write_json(run_dir / "meta.json", meta)
 
-        # ---- parameters.json ----
+        # ---- parameters.json ----            
         _write_json(run_dir / "parameters.json", _serialize_parameters(env.parameters))
 
         # ---- network.json ----

@@ -36,41 +36,6 @@ class MpcCoordinatedSimulation(MpcVSLSimulation):
         self.v_ctrl_last = self.MPC.parameter("v_ctrl_last", (self.v_ctrl.size1(), 1))
         self.r_last = self.MPC.parameter("r_last", (self.r.size1(), 1))
 
-    def init_constraints(self):
-
-        delta_v_max = 10  # Max drop allowed
-        delta_v_increase = 0  # Change to 0 to allow flat profiles
-        max_temporal_change = 10 # i.e. between time steps
-        mpc = self.MPC
-        v_ctrl = self.v_ctrl
-        v_ctrl_last = self.v_ctrl_last
-
-        for i in range(v_ctrl.size1()):
-            mpc.constraint(f"temporal_pos_{i}_0", v_ctrl_last[i] - v_ctrl[i, 0], "<=", max_temporal_change, soft=False)
-            mpc.constraint(f"temporal_neg_{i}_0", v_ctrl[i, 0] - v_ctrl_last[i], "<=", max_temporal_change, soft=False)
-            
-            for k in range(v_ctrl.size2() - 1):
-                mpc.constraint(f"temporal_pos_{i}_{k+1}", v_ctrl[i, k] - v_ctrl[i, k+1], "<=", max_temporal_change, soft=False)
-                mpc.constraint(f"temporal_neg_{i}_{k+1}", v_ctrl[i, k+1] - v_ctrl[i, k], "<=", max_temporal_change, soft=False)
-
-        for k in range(v_ctrl.size2()): # i.e. beteen segments at each time step (spatial smoothness)
-            for i in range(v_ctrl.size1() - 1): 
-                mpc.constraint(
-                    f"vsl_downstream_lower_{i}_{k}",
-                    v_ctrl[i + 1, k] - v_ctrl[i, k],  
-                    "<=",
-                    delta_v_increase,
-                    soft=False
-                )
-                
-                mpc.constraint(
-                    f"vsl_max_drop_{i}_{k}",
-                    v_ctrl[i, k] - v_ctrl[i + 1, k],
-                    "<=",
-                    delta_v_max,
-                    soft=False
-                )
-
     def init_objective(self):
 
         # ---------------- old -----------------
@@ -86,18 +51,17 @@ class MpcCoordinatedSimulation(MpcVSLSimulation):
         # ---------------- old -----------------
         parameters: VslParameters = self.environment.parameters
 
-        r_weight = 0.4
-        temporal_smoothness_weight = 0.4
-        seg4_safety_weight = 1.0
-        threshold = 25
-        seg_4_idx = 3  # Assuming segment 4 is at index 3 (0-based indexing)
+        r_weight = self.use_weight_parameter("r_weight", 1.0)
+        temporal_smoothness_weight = self.use_weight_parameter("temporal_smoothness", 0.4)
+        seg4_safety_weight = self.use_weight_parameter("seg4_safety", 1)  # Weight for safety penalty in segment 4
+        queue_threshold = self.use_weight_parameter("queue_threshold", 25)  # Threshold for congestion in segment 4
+        seg_4_idx = self.use_weight_parameter("seg_4_idx", 3)  # Assuming segment 4 is at index 3 (0-based indexing)
 
         temporal_smoothness = temporal_smoothness_weight * cs.sumsqr(cs.diff(cs.horzcat(self.v_ctrl_last, self.v_ctrl), 1, 1) / parameters.v_free)
         # solid with 40 - 60 as temporal smoothness
         tts_term = cs.sum2(cs.sum1(self.rho * parameters.L * parameters.lanes) + cs.sum1(self.w))
     
-        # congestion_indicator = cs.fmax(0, self.w[1, 0] - threshold)
-        congestion_indicator = cs.fmax(0, self.w[1, 0] - threshold)
+        congestion_indicator = cs.fmax(0, self.w[1, 0] - queue_threshold)
         seg4_safety_penalty = seg4_safety_weight * congestion_indicator * cs.sumsqr(self.v_ctrl[seg_4_idx, :] / parameters.v_free)
 
         self.MPC.minimize(

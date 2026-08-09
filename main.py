@@ -27,6 +27,7 @@ def _run(scenario: Scenario, control_type: str, visualiser: MacroscopicVisualise
                 network.origins_by_name["O1"]: {"v_ctrl": np.inf},  # effectively unrestricted
             },
         )
+        
         solver.setup()
         solver.simulate()
         fig = visualiser.plot_rm_vsl(
@@ -69,6 +70,7 @@ def _run(scenario: Scenario, control_type: str, visualiser: MacroscopicVisualise
             initial_conditions={
                 network.origins_by_name["O1"]: {"v_ctrl": np.inf},  # effectively unrestricted
             },
+            objective_weights=env.objective_weights,
         )
         solver.setup()
         solver.simulate()
@@ -153,7 +155,7 @@ if __name__ == "__main__":
     visualiser = MacroscopicVisualiser()
     run_set = RunSet(
         name=scenario_name,
-        base_dir=scenario.path / "run_set",
+        base_dir=scenario.path / "macro-sim-runs",
     )
 
     if mode == "single":
