@@ -7,6 +7,7 @@ macro-sim-runs/
 .venv/
 .env
 venv/
+micronet/
 env/
 .DS_Store
 .idea/

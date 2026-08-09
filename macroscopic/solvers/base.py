@@ -449,4 +449,45 @@ class BaseMPCSolver(BaseSimulation):
         rho, v, w = cs.vertsplit(x_next, (0, self.number_of_segments, 2 * self.number_of_segments, 2 * self.number_of_segments + self.number_of_origins))
         q, q_on = cs.vertsplit(q_all, (0, self.number_of_segments, self.number_of_segments + self.number_of_origins))
         return rho, v, w, q, q_on
-    
+
+    def solve_single_step(self, rho, v, w, demands_forecast, current_time=None):
+        '''
+        Solve the MPC problem for a single time step given the current states and forecasted demands.
+        This method is intended to be overridden by subclasses to implement specific logic for solving the MPC problem at each time step.
+
+        Args:
+            rho (cs.SX): Current traffic density state.
+            v (cs.SX): Current traffic speed state.
+            w (cs.SX): Current congestion queue state.
+            demands_forecast (np.ndarray): Forecasted demands over the prediction horizon.
+            current_time (int, optional): Current time step index. Defaults to None.
+
+        Returns:
+            tuple: Optimal ramp metering rates and other control variables for the current time step.
+        '''
+        raise NotImplementedError("The '_solve_single_step' method must be implemented in subclasses of BaseMPCSolver.")
+
+    def save_single_step_solution(self, solution, current_time, prediction_times):
+        '''
+        Save the solution of the MPC problem for a single time step. This method stores the optimal ramp metering rates and other control variables obtained from solving the MPC problem.
+
+        Args:
+            solution (dict): Solution obtained from the MPC solver.
+            current_time (int): Current time step index.
+            prediction_times (Any): List of time steps over the prediction horizon.
+        '''
+        raise NotImplementedError("The '_save_single_step_solution' method must be implemented in subclasses of BaseMPCSolver.")
+
+    def reset(self):
+        '''
+        Reset the solver to its initial state. This method clears any stored simulation results and resets the internal states of the solver, allowing for a fresh start for a new simulation run.
+        '''
+        self._rho = None
+        self._v = None
+        self._w = None
+        self._r = None
+        self._r_last = None
+        self._MPC = None
+        self._Np = None
+        self._Nc = None
+        self._M = None
