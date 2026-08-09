@@ -6,15 +6,21 @@ from macroscopic.solvers import MpcRMSimulation, MpcVSLSimulation, MpcCoordinate
 from macroscopic.simulation.model import BaseModelSimulation
 from macroscopic.visualisation.base import MacroscopicVisualiser
 from macroscopic.statistics import RunSet
+from macroscopic.vsl import CarlsonLinkWithVsl, FrejoLinkWithVsl
 
 from scenarios import Scenario
 
 from macroscopic.logger import LOGGER
 
 
-def _run(scenario: Scenario, control_type: str, visualiser: MacroscopicVisualiser, run_set: RunSet) -> None:
-    env = scenario.build_environment(control_type)
+def _run(scenario: Scenario, control_type: str, visualiser: MacroscopicVisualiser, run_set: RunSet, **kwargs) -> None:
+    env = scenario.build_environment(control_type, **kwargs)
     network = env.network
+
+    extra_meta = {
+        "linkKlass": kwargs.get("linkKlass", None).__name__ if kwargs.get("linkKlass", None) else None,
+        "control_type": control_type,
+    }
 
     if control_type == "vsl":
         solver = MpcVSLSimulation(
@@ -36,7 +42,7 @@ def _run(scenario: Scenario, control_type: str, visualiser: MacroscopicVisualise
             metrics=solver.overview_results,
             show=False,
         )
-        run_set.new_run(solver, run_type=control_type, figures={"rm_vsl": fig}, demands_meta=scenario.demands_meta)
+        run_set.new_run(solver, run_type=control_type, figures={"rm_vsl": fig}, demands_meta=scenario.demands_meta, extra_meta=extra_meta)
 
     elif control_type == "rm":
         solver = MpcRMSimulation(
@@ -58,14 +64,14 @@ def _run(scenario: Scenario, control_type: str, visualiser: MacroscopicVisualise
             metrics=solver.overview_results,
             show=False,
         )
-        run_set.new_run(solver, run_type=control_type, figures={"ramp_metering": fig}, demands_meta=scenario.demands_meta)
+        run_set.new_run(solver, run_type=control_type, figures={"ramp_metering": fig}, demands_meta=scenario.demands_meta, extra_meta=extra_meta)
 
     elif control_type == "coordinated":
         solver = MpcCoordinatedSimulation(
             environment=env,
-            Np=7,
-            Nc=3,
-            M=6,
+            Np=5,
+            Nc=4,
+            M=30,
             function_compactness=2,
             initial_conditions={
                 network.origins_by_name["O1"]: {"v_ctrl": np.inf},  # effectively unrestricted
@@ -80,7 +86,7 @@ def _run(scenario: Scenario, control_type: str, visualiser: MacroscopicVisualise
             metrics=solver.overview_results,
             show=False,
         )
-        run_set.new_run(solver, run_type=control_type, figures={"coordinated": fig}, demands_meta=scenario.demands_meta)
+        run_set.new_run(solver, run_type=control_type, figures={"coordinated": fig}, demands_meta=scenario.demands_meta, extra_meta=extra_meta)
 
     elif control_type == "base":
         solver = BaseModelSimulation(
@@ -99,7 +105,7 @@ def _run(scenario: Scenario, control_type: str, visualiser: MacroscopicVisualise
             metrics=solver.overview_results,
             show=False,
         )
-        run_set.new_run(solver, run_type=control_type, figures={"dynamics": fig}, demands_meta=scenario.demands_meta)
+        run_set.new_run(solver, run_type=control_type, figures={"dynamics": fig}, demands_meta=scenario.demands_meta, extra_meta=extra_meta)
 
     LOGGER.info("Displaying all figures.")
     plt.show()
@@ -159,7 +165,7 @@ if __name__ == "__main__":
     )
 
     if mode == "single":
-        _run(scenario, control_type, visualiser, run_set)
+        _run(scenario, control_type, visualiser, run_set, linkKlass=FrejoLinkWithVsl)
     else:
         for control_type in ("base", "rm", "vsl", "coordinated"):
             LOGGER.info(f"\n--- Running: {control_type} ---")

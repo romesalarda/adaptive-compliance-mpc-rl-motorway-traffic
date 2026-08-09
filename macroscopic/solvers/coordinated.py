@@ -101,6 +101,10 @@ class MpcCoordinatedSimulation(MpcVSLSimulation):
                 )
                 sol_prev = sol.vals
                 v_ctrl_last = sol.vals["v_ctrl"][:, 0]
+
+                v_ctrl_py = [float(v_ctrl_last[i]) for i in range(v_ctrl_last.numel())]
+                v_ctrl_last = [round(v / 10) * 10 for v in v_ctrl_py]
+                
                 r_last = sol.vals["r"][:, 0]
             
             rho, v, w, q, q_on = self.get_next_states(rho, v, w, v_ctrl_last, r_last, k, F=F)

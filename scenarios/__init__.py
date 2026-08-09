@@ -47,7 +47,7 @@ class Scenario:
     # Public API
     # ------------------------------------------------------------------
 
-    def build_environment(self, control_type: str) -> Environment:
+    def build_environment(self, control_type: str, **kwargs) -> Environment:
         """Merge parameters, instantiate the right Parameters class, build network and demands."""
         if control_type not in _PARAMS_REGISTRY:
             raise ValueError(
@@ -64,7 +64,7 @@ class Scenario:
 
         parameters = params_cls(**params_dict)
 
-        network = self._build_network(parameters, control_type)
+        network = self._build_network(parameters, control_type, **kwargs)
         demands = self._build_demands(parameters.time)
 
         return Environment(
@@ -91,14 +91,14 @@ class Scenario:
     # Internal helpers
     # ------------------------------------------------------------------
 
-    def _build_network(self, parameters: BaseParameters, control_type: str) -> "Network":
+    def _build_network(self, parameters: BaseParameters, control_type: str, **kwargs) -> "Network":
         network_path = self.path / "network.py"
         spec = importlib.util.spec_from_file_location(
             f"scenarios.{self.name}.network", network_path
         )
         module = importlib.util.module_from_spec(spec)
         spec.loader.exec_module(module)
-        return module.build_network(parameters, control_type)
+        return module.build_network(parameters, control_type, **kwargs)
 
     def _build_demands(self, time: np.ndarray) -> np.ndarray:
         cfg = self._config["demands"]

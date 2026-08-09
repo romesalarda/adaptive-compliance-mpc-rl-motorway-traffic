@@ -383,6 +383,12 @@ class RunSet:
             "environment_id": env.id,
             "network_name": getattr(env.network, "name", "unknown"),
             "simulation_time_s": solver.run_results.total_simulation_time,
+
+            "solver_config": _numpy_to_python({
+                "Np": solver.Np,
+                "Nc": solver.Nc,
+                "M": solver.M,
+            }),
         }
         if extra_meta:
             meta.update(extra_meta)
