@@ -284,6 +284,90 @@ class MicroVisualiser:
         return str(out_path)
 
     # ------------------------------------------------------------------
+    # Prediction alignment helper (shared by dashboard + analysis)
+    # ------------------------------------------------------------------
+
+    def _align_predictions(self, async_stats: "AsyncMPCStats", macro_T_s: float) -> dict:
+        """
+        Align solver predictions against actual micro state.
+        Returns 1-step-ahead comparison arrays and per-cycle full-horizon RMSE.
+        macro_T_s: macro time step in seconds (push interval).
+        """
+        micro_times = np.asarray(self.micro.run.timestamps)
+        micro_step_s = float(micro_times[1] - micro_times[0]) if len(micro_times) > 1 else 0.1
+        macro_step_micro = max(1, int(round(macro_T_s / micro_step_s)))
+
+        records = [r for r in async_stats.records if r.rho_pred]
+
+        pred_t: list = []
+        pred_rho_1: list = []
+        pred_v_1: list = []
+        pred_w_1: list = []
+        act_rho_1: list = []
+        act_v_1: list = []
+        act_w_1: list = []
+        cycle_t: list = []
+        rmse_rho: list = []
+        rmse_v: list = []
+        rmse_w: list = []
+
+        for r in records:
+            push_idx = int(round(r.push_time_sim / micro_step_s))
+            pred_rho = np.array(r.rho_pred)   # (horizon, n_seg)
+            horizon  = pred_rho.shape[0]
+
+            idx_1 = push_idx + macro_step_micro
+            if idx_1 < len(micro_times):
+                pred_t.append(r.push_time_sim + macro_T_s)
+                pred_rho_1.append(pred_rho[0])
+                if r.v_pred:
+                    pred_v_1.append(np.array(r.v_pred)[0])
+                if r.w_pred:
+                    pred_w_1.append(np.array(r.w_pred)[0])
+                act_rho_1.append(self.micro.density[idx_1])
+                act_v_1.append(self.micro.speed[idx_1])
+                if self.micro.queue is not None:
+                    act_w_1.append(self.micro.queue[idx_1])
+
+            # Full-horizon RMSE: compare every macro step in the prediction
+            indices = [push_idx + (k + 1) * macro_step_micro for k in range(horizon)]
+            valid = [(k, i) for k, i in enumerate(indices) if i < len(micro_times)]
+            if valid:
+                ks, idxs = zip(*valid)
+                ks, idxs = list(ks), list(idxs)
+                rho_err = pred_rho[ks] - self.micro.density[idxs]
+                rmse_rho.append(float(np.sqrt(np.mean(rho_err ** 2))))
+                if r.v_pred:
+                    v_err = np.array(r.v_pred)[ks] - self.micro.speed[idxs]
+                    rmse_v.append(float(np.sqrt(np.mean(v_err ** 2))))
+                if r.w_pred and self.micro.queue is not None:
+                    w_err = np.array(r.w_pred)[ks] - self.micro.queue[idxs]
+                    rmse_w.append(float(np.sqrt(np.mean(w_err ** 2))))
+                cycle_t.append(r.push_time_sim)
+
+        def _arr(lst, ndim2=False):
+            if not lst:
+                return np.empty((0, 1)) if ndim2 else np.empty((0,))
+            return np.array(lst, dtype=np.float32)
+
+        return {
+            "pred_t":        _arr(pred_t),
+            "pred_rho_1":    _arr(pred_rho_1, ndim2=True),
+            "pred_v_1":      _arr(pred_v_1,   ndim2=True),
+            "pred_w_1":      _arr(pred_w_1,   ndim2=True),
+            "act_rho_1":     _arr(act_rho_1,  ndim2=True),
+            "act_v_1":       _arr(act_v_1,    ndim2=True),
+            "act_w_1":       _arr(act_w_1,    ndim2=True),
+            "cycle_t":       _arr(cycle_t),
+            "rmse_rho":      _arr(rmse_rho),
+            "rmse_v":        _arr(rmse_v),
+            "rmse_w":        _arr(rmse_w),
+            "records":       records,
+            "macro_T_s":     macro_T_s,
+            "macro_step_micro": macro_step_micro,
+        }
+
+    # ------------------------------------------------------------------
     # Async MPC detail dashboard
     # ------------------------------------------------------------------
 
@@ -324,21 +408,25 @@ class MicroVisualiser:
         solve_wall = np.array([r.solve_time_wall for r in records])
         cycle_ids  = np.array([r.cycle_id for r in records])
         latency    = recv_sim - push_sim
+        macro_T_s  = float(np.median(np.diff(push_sim))) if len(push_sim) > 1 else 10.0
 
         has_predictions = any(r.rho_pred for r in records)
-        has_actual      = self.micro.density is not None
-        show_pred_vs_actual = has_predictions and has_actual
+        has_actual      = self.micro.density is not None and self.micro.speed is not None
+        aln = self._align_predictions(async_stats, macro_T_s) if has_predictions and has_actual else None
 
-        n_rows = 6
+        n_rows = 9
         row_titles = [
             "Solve Timeline (push → receive, per cycle)",
             "Solve Latency per Cycle (s)",
             "Solve Time Distribution",
             "State Pushed to MPC — Density / Speed / Queue",
-            f"Predicted rho vs Actual Micro Density {'(per segment)' if show_pred_vs_actual else '(no predictions recorded)'}",
+            "Density: 1-step-ahead Predicted vs Actual",
+            "Speed: 1-step-ahead Predicted vs Actual",
+            "Queue: 1-step-ahead Predicted vs Actual",
+            "Per-Cycle Prediction RMSE (full horizon)",
             "Cumulative Queue-Full Events",
         ]
-        row_heights = [0.18, 0.12, 0.12, 0.20, 0.24, 0.14]
+        row_heights = [0.13, 0.09, 0.09, 0.14, 0.11, 0.11, 0.09, 0.11, 0.13]
 
         fig = make_subplots(
             rows=n_rows, cols=1,
@@ -463,50 +551,100 @@ class MicroVisualiser:
         fig.update_xaxes(title_text="Push time (s)", row=4, col=1)
         fig.update_yaxes(title_text="rho (solid) / v (dash) / w (dot)", row=4, col=1)
 
-        # ── Row 5: Predicted rho vs actual density ───────────────────────────
-        if show_pred_vs_actual:
-            micro_times = np.asarray(self.micro.run.timestamps)  # seconds
-            step_len_s = float(micro_times[1] - micro_times[0]) if len(micro_times) > 1 else 1.0
-
+        # ── Rows 5–7: 1-step-ahead predictions vs actual ─────────────────────
+        micro_times_s = np.asarray(self.micro.run.timestamps)
+        if aln is not None and aln["pred_t"].size > 0:
+            # Row 5: Density
             for seg_i in range(n_seg):
                 c = colors[seg_i % len(colors)]
                 lbl = self.labels[seg_i] if seg_i < len(self.labels) else f"seg{seg_i+1}"
-
-                # Actual micro density for this segment
                 fig.add_trace(go.Scatter(
-                    x=micro_times, y=self.micro.density[:, seg_i],
-                    mode="lines", line=dict(color=c, width=1.5),
-                    name=f"actual {lbl}", legendgroup=f"pred_{seg_i}", showlegend=True,
+                    x=micro_times_s, y=self.micro.density[:, seg_i],
+                    mode="lines", line=dict(color=c, width=1.2),
+                    name=f"actual {lbl}", legendgroup=f"d5_{seg_i}", showlegend=True,
                 ), row=5, col=1)
-
-                # Predicted rollouts from each cycle (semi-transparent)
-                for r in records:
-                    if not r.rho_pred:
-                        continue
-                    pred = np.array(r.rho_pred)  # (horizon, n_seg)
-                    if seg_i >= pred.shape[1]:
-                        continue
-                    horizon = pred.shape[0]
-                    pred_times = r.push_time_sim + np.arange(1, horizon + 1) * step_len_s
+                if aln["pred_rho_1"].ndim == 2 and seg_i < aln["pred_rho_1"].shape[1]:
                     fig.add_trace(go.Scatter(
-                        x=pred_times, y=pred[:, seg_i],
-                        mode="lines", line=dict(color=c, width=0.8, dash="dot"),
-                        opacity=0.35,
-                        name=f"pred {lbl} c{r.cycle_id}",
-                        legendgroup=f"pred_{seg_i}", showlegend=False,
-                        hovertemplate=f"Cycle {r.cycle_id}<br>rho_pred={seg_i}<br>%{{y:.2f}}<extra></extra>",
+                        x=aln["pred_t"], y=aln["pred_rho_1"][:, seg_i],
+                        mode="markers+lines",
+                        line=dict(color=c, dash="dash", width=1.0),
+                        marker=dict(size=4, symbol="circle-open"),
+                        name=f"pred {lbl}", legendgroup=f"d5_{seg_i}", showlegend=True,
                     ), row=5, col=1)
+            fig.update_xaxes(title_text="Simulation time (s)", row=5, col=1)
+            fig.update_yaxes(title_text="Density (veh/km/lane)", row=5, col=1)
+
+            # Row 6: Speed
+            if aln["pred_v_1"].ndim == 2 and aln["pred_v_1"].shape[0] > 0:
+                for seg_i in range(n_seg):
+                    c = colors[seg_i % len(colors)]
+                    lbl = self.labels[seg_i] if seg_i < len(self.labels) else f"seg{seg_i+1}"
+                    fig.add_trace(go.Scatter(
+                        x=micro_times_s, y=self.micro.speed[:, seg_i],
+                        mode="lines", line=dict(color=c, width=1.2),
+                        name=f"actual v {lbl}", legendgroup=f"d6_{seg_i}", showlegend=True,
+                    ), row=6, col=1)
+                    if seg_i < aln["pred_v_1"].shape[1]:
+                        fig.add_trace(go.Scatter(
+                            x=aln["pred_t"], y=aln["pred_v_1"][:, seg_i],
+                            mode="markers+lines",
+                            line=dict(color=c, dash="dash", width=1.0),
+                            marker=dict(size=4, symbol="circle-open"),
+                            name=f"pred v {lbl}", legendgroup=f"d6_{seg_i}", showlegend=True,
+                        ), row=6, col=1)
+            fig.update_xaxes(title_text="Simulation time (s)", row=6, col=1)
+            fig.update_yaxes(title_text="Speed (km/h)", row=6, col=1)
+
+            # Row 7: Queue
+            if aln["pred_w_1"].ndim == 2 and aln["pred_w_1"].shape[0] > 0 and self.micro.queue is not None:
+                n_orig = self.micro.queue.shape[1]
+                for j in range(n_orig):
+                    c = colors[j % len(colors)]
+                    fig.add_trace(go.Scatter(
+                        x=micro_times_s, y=self.micro.queue[:, j],
+                        mode="lines", line=dict(color=c, width=1.2),
+                        name=f"actual w{j}", legendgroup=f"d7_{j}", showlegend=True,
+                    ), row=7, col=1)
+                    if j < aln["pred_w_1"].shape[1]:
+                        fig.add_trace(go.Scatter(
+                            x=aln["pred_t"], y=aln["pred_w_1"][:, j],
+                            mode="markers+lines",
+                            line=dict(color=c, dash="dash", width=1.0),
+                            marker=dict(size=4, symbol="circle-open"),
+                            name=f"pred w{j}", legendgroup=f"d7_{j}", showlegend=True,
+                        ), row=7, col=1)
+            fig.update_xaxes(title_text="Simulation time (s)", row=7, col=1)
+            fig.update_yaxes(title_text="Queue (vehicles)", row=7, col=1)
         else:
             fig.add_annotation(
-                text="No prediction data available (solver did not return rho_pred)",
+                text="No prediction data available",
                 xref="paper", yref="paper", x=0.5, y=0.5,
                 showarrow=False, font=dict(size=12),
-                row=5, col=1,
             )
-        fig.update_xaxes(title_text="Simulation time (s)", row=5, col=1)
-        fig.update_yaxes(title_text="Density (veh/km/lane)", row=5, col=1)
 
-        # ── Row 6: Cumulative queue-full events ──────────────────────────────
+        # ── Row 8: Per-cycle RMSE ─────────────────────────────────────────────
+        if aln is not None and aln["rmse_rho"].size > 0:
+            fig.add_trace(go.Scatter(
+                x=aln["cycle_t"], y=aln["rmse_rho"],
+                mode="lines+markers", name="RMSE density (veh/km/lane)",
+                line=dict(color="#1f77b4"), marker_size=5,
+            ), row=8, col=1)
+            if aln["rmse_v"].size > 0:
+                fig.add_trace(go.Scatter(
+                    x=aln["cycle_t"], y=aln["rmse_v"],
+                    mode="lines+markers", name="RMSE speed (km/h)",
+                    line=dict(color="#ff7f0e"), marker_size=5,
+                ), row=8, col=1)
+            if aln["rmse_w"].size > 0:
+                fig.add_trace(go.Scatter(
+                    x=aln["cycle_t"], y=aln["rmse_w"],
+                    mode="lines+markers", name="RMSE queue (veh)",
+                    line=dict(color="#2ca02c"), marker_size=5,
+                ), row=8, col=1)
+        fig.update_xaxes(title_text="Push time (s)", row=8, col=1)
+        fig.update_yaxes(title_text="RMSE", row=8, col=1)
+
+        # ── Row 9: Cumulative queue-full events ───────────────────────────────
         if async_stats.queue_events:
             qf_sim_times = sorted(ev["time_sim"] for ev in async_stats.queue_events)
             cum_counts = list(range(1, len(qf_sim_times) + 1))
@@ -516,24 +654,26 @@ class MicroVisualiser:
                 name="Cumulative queue-full events",
                 line=dict(color="red", shape="hv"),
                 hovertemplate="t=%{x:.1f}s<br>Cumulative: %{y}<extra></extra>",
-            ), row=6, col=1)
+            ), row=9, col=1)
         else:
             fig.add_annotation(
                 text="No queue-full events recorded",
                 xref="paper", yref="paper", x=0.5, y=0.04,
                 showarrow=False, font=dict(size=11),
             )
-        fig.update_xaxes(title_text="Simulation time (s)", row=6, col=1)
-        fig.update_yaxes(title_text="Count", row=6, col=1)
+        fig.update_xaxes(title_text="Simulation time (s)", row=9, col=1)
+        fig.update_yaxes(title_text="Count", row=9, col=1)
 
         # ── Layout ───────────────────────────────────────────────────────────
         n_completed = sum(1 for r in records if r.status == "completed")
         mean_ipopt = float(np.mean(solve_rep)) if len(solve_rep) else 0
         mean_lat   = float(np.mean(latency)) if len(latency) else 0
+        mean_rmse_rho = float(np.mean(aln["rmse_rho"])) if aln is not None and aln["rmse_rho"].size > 0 else float("nan")
         subtitle = (
             f"{n_completed} completed cycles | "
             f"mean IPOPT: {mean_ipopt:.3f}s | "
             f"mean latency: {mean_lat:.2f}s | "
+            f"mean density RMSE: {mean_rmse_rho:.3f} | "
             f"queue-full events: {len(async_stats.queue_events)}"
         )
         fig.update_layout(
@@ -541,9 +681,198 @@ class MicroVisualiser:
                 f"Async MPC diagnostics — {self.micro.scenario_id} [{self.micro.solver_type}]<br>"
                 f"<sup>{subtitle}</sup>"
             )),
-            height=1800,
+            height=2600,
             legend=dict(orientation="v", x=1.01, font=dict(size=9)),
             barmode="overlay",
+        )
+
+        out_path = Path(output_dir) / filename
+        out_path.parent.mkdir(parents=True, exist_ok=True)
+        fig.write_html(str(out_path))
+        return str(out_path)
+
+    # ------------------------------------------------------------------
+    # Detailed prediction vs actual analysis dashboard
+    # ------------------------------------------------------------------
+
+    def plot_prediction_analysis(
+        self,
+        async_stats: "AsyncMPCStats",
+        filename: str = "prediction_analysis.html",
+        output_dir: str = ".",
+    ) -> str:
+        """
+        Full-detail prediction vs actual dashboard.
+
+        Panels:
+          1. Density  — actual (solid) + 1-step-ahead predicted (dashed open circles) +
+                        full rollout overlays every 5th cycle (faint dots)
+          2. Speed    — same layout as density
+          3. Queue    — same layout
+          4. Per-cycle RMSE over time (full prediction horizon, all variables)
+          5. RMSE summary table (per-segment 1-step + per-cycle mean + overall means)
+        """
+        try:
+            from plotly.subplots import make_subplots
+            import plotly.graph_objects as go
+        except ImportError:
+            raise ImportError("plotly is required. pip install plotly")
+
+        push_times = np.array([r.push_time_sim for r in async_stats.records])
+        macro_T_s  = float(np.median(np.diff(push_times))) if len(push_times) > 1 else 10.0
+        aln        = self._align_predictions(async_stats, macro_T_s)
+
+        if aln["pred_t"].size == 0:
+            raise ValueError("No prediction data in async_stats records.")
+
+        n_seg   = len(self.labels)
+        micro_t = np.asarray(self.micro.run.timestamps)
+        colors  = ["#1f77b4", "#ff7f0e", "#2ca02c", "#d62728", "#9467bd",
+                   "#8c564b", "#e377c2", "#7f7f7f"]
+
+        specs = [[{"type": "scatter"}]] * 4 + [[{"type": "table"}]]
+        fig = make_subplots(
+            rows=5, cols=1,
+            subplot_titles=[
+                "Density — actual (solid) vs 1-step-ahead predicted (dashed ○) + full rollouts (dot)",
+                "Speed — actual vs 1-step-ahead predicted + full rollouts",
+                "Queue — actual vs 1-step-ahead predicted + full rollouts",
+                "Per-Cycle RMSE over time (full prediction horizon)",
+                "RMSE Summary",
+            ],
+            row_heights=[0.22, 0.22, 0.15, 0.18, 0.23],
+            vertical_spacing=0.06,
+            specs=specs,
+        )
+
+        def _plot_var(row, actual_arr, pred_1_arr, rollout_attr, ylabel):
+            """Plot actual + 1-step + rollout traces for one variable."""
+            n_vars = actual_arr.shape[1] if actual_arr.ndim == 2 else 1
+            for i in range(n_vars):
+                c   = colors[i % len(colors)]
+                lbl = self.labels[i] if i < len(self.labels) else f"seg{i+1}"
+                y_act = actual_arr[:, i] if actual_arr.ndim == 2 else actual_arr
+                # Actual full trace
+                fig.add_trace(go.Scatter(
+                    x=micro_t, y=y_act,
+                    mode="lines", line=dict(color=c, width=1.5),
+                    name=f"actual {lbl}",
+                    legendgroup=f"r{row}_{i}", showlegend=True,
+                ), row=row, col=1)
+                # 1-step-ahead predicted
+                if pred_1_arr.ndim == 2 and i < pred_1_arr.shape[1]:
+                    fig.add_trace(go.Scatter(
+                        x=aln["pred_t"], y=pred_1_arr[:, i],
+                        mode="markers+lines",
+                        line=dict(color=c, dash="dash", width=1.2),
+                        marker=dict(size=5, symbol="circle-open"),
+                        name=f"1-step pred {lbl}",
+                        legendgroup=f"r{row}_{i}", showlegend=True,
+                    ), row=row, col=1)
+                # Full rollout overlays — every 5th cycle to limit trace count
+                for k, r_rec in enumerate(aln["records"]):
+                    if k % 5 != 0:
+                        continue
+                    raw = getattr(r_rec, rollout_attr)
+                    if not raw:
+                        continue
+                    p = np.array(raw)
+                    if p.ndim < 2 or i >= p.shape[1]:
+                        continue
+                    p_times = r_rec.push_time_sim + np.arange(1, p.shape[0] + 1) * macro_T_s
+                    fig.add_trace(go.Scatter(
+                        x=p_times, y=p[:, i],
+                        mode="lines", line=dict(color=c, width=0.6, dash="dot"),
+                        opacity=0.25, showlegend=False,
+                        hovertemplate=f"c{r_rec.cycle_id} {lbl}<br>t=%{{x:.0f}}s<br>%{{y:.2f}}<extra></extra>",
+                    ), row=row, col=1)
+            fig.update_xaxes(title_text="Simulation time (s)", row=row, col=1)
+            fig.update_yaxes(title_text=ylabel, row=row, col=1)
+
+        # Rows 1-3
+        _plot_var(1, self.micro.density, aln["pred_rho_1"], "rho_pred", "Density (veh/km/lane)")
+        if aln["pred_v_1"].shape[0] > 0:
+            _plot_var(2, self.micro.speed, aln["pred_v_1"], "v_pred", "Speed (km/h)")
+        if self.micro.queue is not None and aln["pred_w_1"].shape[0] > 0:
+            _plot_var(3, self.micro.queue, aln["pred_w_1"], "w_pred", "Queue (vehicles)")
+
+        # Row 4: Per-cycle RMSE
+        if aln["rmse_rho"].size > 0:
+            fig.add_trace(go.Scatter(
+                x=aln["cycle_t"], y=aln["rmse_rho"],
+                mode="lines+markers", name="Density RMSE (veh/km/lane)",
+                line=dict(color="#1f77b4"), marker_size=5,
+                hovertemplate="t=%{x:.0f}s<br>RMSE=%{y:.3f}<extra></extra>",
+            ), row=4, col=1)
+        if aln["rmse_v"].size > 0:
+            fig.add_trace(go.Scatter(
+                x=aln["cycle_t"], y=aln["rmse_v"],
+                mode="lines+markers", name="Speed RMSE (km/h)",
+                line=dict(color="#ff7f0e"), marker_size=5,
+            ), row=4, col=1)
+        if aln["rmse_w"].size > 0:
+            fig.add_trace(go.Scatter(
+                x=aln["cycle_t"], y=aln["rmse_w"],
+                mode="lines+markers", name="Queue RMSE (veh)",
+                line=dict(color="#2ca02c"), marker_size=5,
+            ), row=4, col=1)
+        fig.update_xaxes(title_text="Push time (s)", row=4, col=1)
+        fig.update_yaxes(title_text="RMSE", row=4, col=1)
+
+        # Row 5: RMSE summary table
+        def _seg_rmse_1step(pred_arr, act_arr, n):
+            if pred_arr.ndim < 2 or pred_arr.shape[0] == 0:
+                return ["N/A"] * n
+            sz = min(pred_arr.shape[0], act_arr.shape[0])
+            return [
+                f"{np.sqrt(np.mean((pred_arr[:sz, i] - act_arr[:sz, i])**2)):.4f}"
+                if i < pred_arr.shape[1] and i < act_arr.shape[1] else "N/A"
+                for i in range(n)
+            ]
+
+        seg_names    = list(self.labels[:n_seg]) + ["MEAN (all seg)"]
+        rho_1step    = _seg_rmse_1step(aln["pred_rho_1"], aln["act_rho_1"], n_seg)
+        v_1step      = _seg_rmse_1step(aln["pred_v_1"],   aln["act_v_1"],   n_seg)
+        mean_rho_cyc = f"{float(np.mean(aln['rmse_rho'])):.4f}" if aln["rmse_rho"].size > 0 else "N/A"
+        mean_v_cyc   = f"{float(np.mean(aln['rmse_v'])):.4f}"   if aln["rmse_v"].size  > 0 else "N/A"
+        mean_w_cyc   = f"{float(np.mean(aln['rmse_w'])):.4f}"   if aln["rmse_w"].size  > 0 else "N/A"
+        # Append mean row
+        rho_1step.append(mean_rho_cyc)
+        v_1step.append(mean_v_cyc)
+        # Queue: overall cycle RMSE (not per-segment) — pad with dash for segment rows
+        w_col = ["—"] * n_seg + [mean_w_cyc]
+
+        row_fill = [["#2c3e50"] + ["#ecf0f1" if i % 2 == 0 else "#ffffff" for i in range(n_seg + 1)]]
+        font_col = [["white"] + ["black"] * (n_seg + 1)]
+
+        fig.add_trace(go.Table(
+            header=dict(
+                values=["Segment",
+                        "Density RMSE 1-step (veh/km/lane)",
+                        "Speed RMSE 1-step (km/h)",
+                        "Queue RMSE mean/cycle (veh)"],
+                fill_color="#2c3e50", font=dict(color="white", size=11), align="left",
+                height=30,
+            ),
+            cells=dict(
+                values=[seg_names, rho_1step, v_1step, w_col],
+                fill_color=row_fill,
+                font=dict(color=font_col, size=10),
+                align="left", height=25,
+            ),
+        ), row=5, col=1)
+
+        n_pred   = len(aln["records"])
+        mr       = float(np.mean(aln["rmse_rho"])) if aln["rmse_rho"].size > 0 else float("nan")
+        mv       = float(np.mean(aln["rmse_v"]))   if aln["rmse_v"].size  > 0 else float("nan")
+        fig.update_layout(
+            title=dict(text=(
+                f"MPC Prediction Analysis — {self.micro.scenario_id} [{self.micro.solver_type}]<br>"
+                f"<sup>{n_pred} prediction cycles | macro T={macro_T_s:.1f}s | "
+                f"mean density RMSE: {mr:.3f} veh/km/lane | mean speed RMSE: {mv:.3f} km/h</sup>"
+            )),
+            height=1900,
+            legend=dict(orientation="v", x=1.01, font=dict(size=9)),
         )
 
         out_path = Path(output_dir) / filename

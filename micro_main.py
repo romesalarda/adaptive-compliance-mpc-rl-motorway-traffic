@@ -37,15 +37,21 @@ def _build_solver(macro_env, control_type: str):
     from macroscopic.solvers import MpcRMSimulation, MpcVSLSimulation, MpcCoordinatedSimulation, DummyMPCSolver
 
     common = dict(Np=7, Nc=3, M=6, function_compactness=2)
-
+    # TODO: fix initial conditions
     if control_type == "rm":
         solver = MpcRMSimulation(environment=macro_env, **common)
     elif control_type == "vsl":
         solver = MpcVSLSimulation(environment=macro_env, **common)
     elif control_type == "coordinated":
-        solver = MpcCoordinatedSimulation(environment=macro_env, Np=7, Nc=5, M=6,
-                                           function_compactness=2,
-                                           objective_weights=macro_env.objective_weights)
+        solver = MpcCoordinatedSimulation(
+                                        environment=macro_env, 
+                                        Np=7, Nc=5, M=6,
+                                        function_compactness=2,
+                                        objective_weights=macro_env.objective_weights,
+                                        initial_conditions={
+                                            macro_env.network.origins_by_name["O1"]: {"v_ctrl": float("inf")},
+                                        }
+                                    )
     elif control_type == "base":
         solver = DummyMPCSolver(environment=macro_env, **common)
 
@@ -66,6 +72,7 @@ def run_single(
     port: int = 8813,
     show_dashboard: bool = True,
     use_async_controller: bool = True,
+    wait_for_input: bool = True,
 ) -> "MicroSimulationResults":
     """
     Build and run one closed-loop SUMO-MPC simulation.
@@ -130,6 +137,10 @@ def run_single(
 
     t0 = time.perf_counter()
     sim.setup()
+
+    if wait_for_input:
+        sim.manual_input_check()
+
     sim.run()
     sim.post_run()
     wall_time = time.perf_counter() - t0
@@ -180,6 +191,15 @@ def run_single(
                 output_dir=str(out_dir),
             )
             print(f"Async dashboard saved to {async_dash_path}")
+            try:
+                pred_dash_path = vis.plot_prediction_analysis(
+                    async_stats=controller.async_stats,
+                    filename="prediction_analysis.html",
+                    output_dir=str(out_dir),
+                )
+                print(f"Prediction analysis saved to {pred_dash_path}")
+            except ValueError as e:
+                print(f"Prediction analysis skipped: {e}")
 
     print(
         f"[{scenario_name}/{control_type}] "
@@ -289,6 +309,13 @@ def main() -> None:
         default=True,
         help="Use synchronous (blocking) MPCController instead of AsyncMPCController",
     )
+    parser.add_argument(
+        "--no-wait",
+        dest="wait_for_input",
+        action="store_false",
+        default=True,
+        help="Do not wait for user input before starting simulation",
+    )
     args = parser.parse_args()
 
     if "SUMO_HOME" not in os.environ:
@@ -312,6 +339,7 @@ def main() -> None:
             output_root=args.output,
             port=args.port,
             use_async_controller=args.use_async_controller,
+            wait_for_input=args.wait_for_input
         )
 
 

@@ -79,6 +79,19 @@ class AsyncMPCController(BaseSUMOController):
             t0 = time.perf_counter()
             try:
                 with self._solver_lock:
+
+                    LOGGER.info("[AsyncMPC] cycle %d: solving for sim t=%.1fs (wall t=%.1fs)",
+                                state["_cycle_id"],
+                                state["_push_sim_time"],
+                                state["_push_wall_time"],
+                            )
+                    
+                    LOGGER.info("[AsyncMPC] state: \nrho=%s, \nv=%s, \nw=%s",
+                                state["rho"].tolist(),
+                                state["v"].tolist(),
+                                state["w"].tolist(),
+                            )
+
                     solution = self.solver.solve_single_step(
                         rho=state["rho"],
                         v=state["v"],
@@ -86,6 +99,12 @@ class AsyncMPCController(BaseSUMOController):
                         demands_forecast=state["demands_forecast"],
                         current_time=state["current_step"],
                     )
+                    
+            except NotImplementedError:
+                raise RuntimeError(
+                    "[AsyncMPC] solve_single_step() is not implemented for class %s"
+                    % self.solver.__class__
+                )
             except Exception as exc:
                 LOGGER.error("[AsyncMPC] solve_single_step failed (cycle %d): %s", state["_cycle_id"], exc)
                 continue
@@ -96,7 +115,7 @@ class AsyncMPCController(BaseSUMOController):
                         state["_push_sim_time"],
                     )
 
-            LOGGER.info("[AsyncMPC] solutions: %s", solution)
+            # LOGGER.info("[AsyncMPC] solutions: %s", solution)
 
             solve_time = time.perf_counter() - t0
 
@@ -130,7 +149,7 @@ class AsyncMPCController(BaseSUMOController):
                     pass
                 self._control_queue.put_nowait(payload)
 
-            LOGGER.debug(
+            LOGGER.info(
                 "[AsyncMPC] cycle %d solved in %.3fs (sim t=%.1fs)",
                 state["_cycle_id"],
                 solve_time,
@@ -193,7 +212,7 @@ class AsyncMPCController(BaseSUMOController):
                     "time_sim": sim_time,
                     "time_wall": push_wall,
                 })
-                LOGGER.debug("[AsyncMPC] state queue full at t=%.1fs (cycle %d)", sim_time, self._cycle_id)
+                LOGGER.warning("[AsyncMPC] state queue full at t=%.1fs (cycle %d)", sim_time, self._cycle_id)
 
             self._last_push_sim = sim_time
 
@@ -203,7 +222,7 @@ class AsyncMPCController(BaseSUMOController):
         except queue.Empty:
             return
         else:
-            LOGGER.debug("[AsyncMPC] received controls for cycle %d at t=%.1fs", meta["_cycle_id"], sim_time)
+            LOGGER.info("[AsyncMPC] received controls for cycle %d at t=%.1fs", meta["_cycle_id"], sim_time)
 
         receive_wall = time.perf_counter()
 

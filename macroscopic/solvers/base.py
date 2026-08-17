@@ -240,6 +240,9 @@ class BaseMPCSolver(BaseSimulation):
         # self.environment.ready(initial_conditions=self.kwargs.get("initial_conditions", {}))
         network = self.environment.network
         # Identify mainline origins (node has no entering links) and fix r=1
+        if not self.kwargs.get("initial_conditions", {}):
+            LOGGER.warning("No initial conditions provided. Using default mainline origins with r=1.")
+
         mainline_ic = {
             origin: {"r": 1}
             for origin, node in network.origins.items()

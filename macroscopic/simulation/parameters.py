@@ -428,8 +428,7 @@ class BaseParameters:
             ignore = set()
 
         for slot in self.__slots__:
-            if not slot.startswith('_') and slot not in ignore:
-                print(f"{slot}: {getattr(self, slot)}")
+            print(f"{slot}: {getattr(self, slot, None)}")
         
     @property
     def name(self) -> str:

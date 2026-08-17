@@ -54,6 +54,17 @@ class BaseMicroEnvironment:
         self._meter_state: dict[str, dict] = {}
         self._manual_override: dict[str, bool] = {}
 
+    def pprint(self) -> None:
+        '''
+        Pretty-print the environment's configuration and state for debugging.
+        '''
+        print("MicroEnvironment:")
+        print(f"  n_segments: {self.n_segments}")
+        print(f"  n_origins: {self.n_origins}")
+        print(f"  step_length: {self.step_length}")
+        print(f"  vsl_edge_ids: {self.vsl_edge_ids}")
+        print(f"  ramp_tl_map: {self.ramp_tl_map}")
+
     # ------------------------------------------------------------------
     # Lifecycle
     # ------------------------------------------------------------------

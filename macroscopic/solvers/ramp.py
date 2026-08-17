@@ -53,12 +53,10 @@ class MpcRMSimulation(BaseMPCSolver):
 
     def solve_single_step(self, rho, v, w, demands_forecast, current_time=None):
 
-        LOGGER.info("\n Solving single step")
         F = self.get_function()
         r_last = cs.DM.ones(self.r.size1(), 1) if self._r_last_value is None else self._r_last_value
 
         d_hat = demands_forecast
-        LOGGER.info(rho)
 
         rho_safe = cs.fmax(rho, 1e-3)
         v_safe = cs.fmax(v, 1e-3)
@@ -84,14 +82,9 @@ class MpcRMSimulation(BaseMPCSolver):
 
         self._r_last_value = r_first
 
-        LOGGER.info("current time is + %s " % str(current_time))
-
         rho, v, w, q, q_on = self.get_next_states(rho, v, w, r_first, current_time, F=F)
 
         self.store_step(rho, v, w, q, q_on, r_last=r_last)
-
-        print(sol.vals["r"])
-        LOGGER.info("\nMPC solved with results :" + str(r_first))
 
         # sol.vals state arrays are shape (n_seg/n_orig, horizon+1); col 0 = initial state
         result: dict = {"r": r_first[0]}

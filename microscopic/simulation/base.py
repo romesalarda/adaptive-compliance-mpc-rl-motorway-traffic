@@ -125,6 +125,19 @@ class SUMOBaseSimulation:
         self.simulation_time += self.config.step_length
         self._step += 1
 
+    def manual_input_check(self) -> None:
+        '''
+        Pretty-print the environment's configuration and state for debugging.
+        Wait for user input to continue or quit.
+        '''
+        self.controller.macro_env.parameters.pprint()
+        self.controller.micro_env.pprint()
+
+        ready = input("Press Enter to continue, or type 'q' to quit: ")
+        if ready.lower() == "q":
+            raise KeyboardInterrupt("User requested exit.")
+        
+
     def run(self) -> None:
         for _ in range(self.config.duration_steps):
             # stop early only if SUMO signals all vehicles have left and cleared
