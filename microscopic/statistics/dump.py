@@ -61,6 +61,8 @@ def save_hdf5(results: MicroSimulationResults, path: str | Path) -> None:
             _write_array(rg, "mpc_solve_times", results.run.mpc_solve_times, np.float32)
         if results.run.solve_steps:
             _write_array(rg, "solve_steps", results.run.solve_steps, np.int32)
+        if results.run.solve_timestamps:
+            _write_array(rg, "solve_timestamps", results.run.solve_timestamps, np.float64)
 
         # --- overview group ---
         og = f.create_group("overview")
@@ -103,6 +105,7 @@ def load_hdf5(path: str | Path) -> MicroSimulationResults:
         run.timestamps = rg["timestamps"][:].tolist() if "timestamps" in rg else []
         run.mpc_solve_times = rg["mpc_solve_times"][:].tolist() if "mpc_solve_times" in rg else []
         run.solve_steps = rg["solve_steps"][:].tolist() if "solve_steps" in rg else []
+        run.solve_timestamps = rg["solve_timestamps"][:].tolist() if "solve_timestamps" in rg else []
         results.run = run
 
         ov = MicroOverviewSimulationResults()

@@ -7,6 +7,8 @@ from typing import Optional
 
 import numpy as np
 
+from macroscopic.logger import LOGGER
+
 
 @dataclass
 class MicroRunSimulationResults:
@@ -24,7 +26,8 @@ class MicroRunSimulationResults:
     v_ctrl_applied: list[np.ndarray] = field(default_factory=list)
     r_applied: list[np.ndarray] = field(default_factory=list)
     mpc_solve_times: list[float] = field(default_factory=list)
-    solve_steps: list[int] = field(default_factory=list)       # which steps triggered a solve
+    solve_steps: list[int] = field(default_factory=list)         # which steps triggered a solve
+    solve_timestamps: list[float] = field(default_factory=list)  # simulation time (s) at each solve reception
 
 
 @dataclass
@@ -73,16 +76,20 @@ class MicroSimulationResults:
         r.speed.append(state["v"].copy())
         r.queue.append(state["w"].copy())
 
+
         if controls is not None:
             has_controls = False
             if "v_ctrl" in controls:
-                r.v_ctrl_applied.append(np.atleast_1d(controls["v_ctrl"]).copy())
+                r.v_ctrl_applied.append(np.atleast_1d(controls["v_ctrl"]).ravel().copy())
                 has_controls = True
             if "r" in controls:
-                r.r_applied.append(np.atleast_1d(controls["r"]).copy())
+                r.r_applied.append(np.atleast_1d(controls["r"]).ravel().copy())
                 has_controls = True
             if has_controls:
                 r.solve_steps.append(step)
+                r.solve_timestamps.append(time)
+            else:
+                LOGGER.error("No controls found in record_step() call, but controls dict was not None.")
 
         if solve_time is not None:
             r.mpc_solve_times.append(solve_time)

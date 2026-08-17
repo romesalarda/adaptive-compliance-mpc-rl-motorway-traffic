@@ -136,10 +136,12 @@ class MicroVisualiser:
         run = self.micro.run
         if not run.solve_steps:
             return None
+        
+        solve_times = np.asarray(run.solve_timestamps) / 3600
 
-        solve_times = np.asarray(run.solve_steps) * (
-            run.timestamps[1] - run.timestamps[0] if len(run.timestamps) > 1 else 1.0
-        ) / 3600
+        # extend to simulation end so the last control reads as a line, not a dot
+        sim_end_h = run.timestamps[-1] / 3600 if run.timestamps else 0.0
+        solve_times_ext = np.append(solve_times, sim_end_h)
 
         has_vsl = bool(run.v_ctrl_applied)
         has_rm = bool(run.r_applied)
@@ -152,8 +154,9 @@ class MicroVisualiser:
 
         if has_vsl:
             v_ctrl = np.array(run.v_ctrl_applied)
+            v_ctrl_ext = np.vstack([v_ctrl, v_ctrl[-1:, :]])
             for k in range(v_ctrl.shape[1]):
-                axes[row][0].step(solve_times, v_ctrl[:, k], label=f"VSL {self.labels[k]}", where="post")
+                axes[row][0].step(solve_times_ext, v_ctrl_ext[:, k], label=f"VSL {self.labels[k]}", where="post")
             axes[row][0].set_ylabel("Speed limit (km/h)")
             axes[row][0].legend(fontsize=7)
             axes[row][0].grid(True, alpha=0.3)
@@ -161,8 +164,9 @@ class MicroVisualiser:
 
         if has_rm:
             r_arr = np.array(run.r_applied)
+            r_arr_ext = np.vstack([r_arr, r_arr[-1:, :]])
             for k in range(r_arr.shape[1]):
-                axes[row][0].step(solve_times, r_arr[:, k], label=f"RM rate {k}", where="post")
+                axes[row][0].step(solve_times_ext, r_arr_ext[:, k], label=f"RM rate {k}", where="post")
             axes[row][0].set_ylabel("Metering rate")
             axes[row][0].set_ylim(0, 1.05)
             axes[row][0].legend(fontsize=7)
@@ -197,9 +201,8 @@ class MicroVisualiser:
 
         times = np.asarray(self.micro.run.timestamps) / 3600
         solve_times = (
-            np.asarray(self.micro.run.solve_steps)
-            * (times[1] - times[0] if len(times) > 1 else 1.0)
-            if self.micro.run.solve_steps
+            np.asarray(self.micro.run.solve_timestamps) / 3600
+            if self.micro.run.solve_timestamps
             else np.array([])
         )
 
@@ -240,18 +243,24 @@ class MicroVisualiser:
                 fig.add_trace(go.Scatter(x=times, y=self.micro.queue[:, j],
                                          name=f"origin {j}"), row=3, col=1)
 
+        # extend to simulation end so the last control reads as a line, not a dot
+        sim_end_h = times[-1] if times.size > 0 else 0.0
+        solve_times_ext = np.append(solve_times, sim_end_h) if solve_times.size > 0 else solve_times
+
         # VSL
         if run.v_ctrl_applied:
             v_ctrl = np.array(run.v_ctrl_applied)
+            v_ctrl_ext = np.vstack([v_ctrl, v_ctrl[-1:, :]])
             for k in range(v_ctrl.shape[1]):
-                fig.add_trace(go.Scatter(x=solve_times, y=v_ctrl[:, k], mode="lines+markers",
+                fig.add_trace(go.Scatter(x=solve_times_ext, y=v_ctrl_ext[:, k], mode="lines+markers",
                                          name=f"VSL {self.labels[k]}", line_shape="hv"), row=4, col=1)
 
         # RM
         if run.r_applied:
             r_arr = np.array(run.r_applied)
+            r_arr_ext = np.vstack([r_arr, r_arr[-1:, :]])
             for k in range(r_arr.shape[1]):
-                fig.add_trace(go.Scatter(x=solve_times, y=r_arr[:, k], mode="lines+markers",
+                fig.add_trace(go.Scatter(x=solve_times_ext, y=r_arr_ext[:, k], mode="lines+markers",
                                          name=f"RM rate {k}", line_shape="hv"), row=5, col=1)
 
         ov = self.micro.overview
