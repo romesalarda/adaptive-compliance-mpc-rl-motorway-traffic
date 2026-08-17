@@ -54,7 +54,7 @@
     "sumo_config": "micronet/motorway.sumocfg",
     "step_length": 0.1,
     "duration_steps": 90000,
-    "solve_interval_steps": 100,
+    "solve_interval_steps": 1000,
     "n_segments": 6,
     "n_origins": 2,
     "edge_to_segment_map": {

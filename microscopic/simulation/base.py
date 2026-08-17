@@ -134,6 +134,7 @@ class SUMOBaseSimulation:
 
     def post_run(self) -> None:
         traci.close()
+        self.controller.stop()
         self.stats.finalize(
             step_length=self.config.step_length,
             n_steps=self._step,

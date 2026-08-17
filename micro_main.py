@@ -34,7 +34,7 @@ if TYPE_CHECKING:
 
 def _build_solver(macro_env, control_type: str):
     """Instantiate and setup the macro solver for the given control type."""
-    from macroscopic.solvers import MpcRMSimulation, MpcVSLSimulation, MpcCoordinatedSimulation
+    from macroscopic.solvers import MpcRMSimulation, MpcVSLSimulation, MpcCoordinatedSimulation, DummyMPCSolver
 
     common = dict(Np=7, Nc=3, M=6, function_compactness=2)
 
@@ -46,6 +46,9 @@ def _build_solver(macro_env, control_type: str):
         solver = MpcCoordinatedSimulation(environment=macro_env, Np=7, Nc=5, M=6,
                                            function_compactness=2,
                                            objective_weights=macro_env.objective_weights)
+    elif control_type == "base":
+        solver = DummyMPCSolver(environment=macro_env, **common)
+
     else:
         raise ValueError(f"Unknown solver type: {control_type!r}")
 
@@ -62,6 +65,7 @@ def run_single(
     output_root: str = "runs",
     port: int = 8813,
     show_dashboard: bool = True,
+    use_async_controller: bool = True,
 ) -> "MicroSimulationResults":
     """
     Build and run one closed-loop SUMO-MPC simulation.
@@ -70,8 +74,10 @@ def run_single(
     from scenarios import Scenario
     from microscopic.simulation.base import SimulationConfig, SUMOBaseSimulation
     from microscopic.controller.mpc import MPCController
+    from microscopic.controller.async_mpc import AsyncMPCController
     from microscopic.statistics.base import MicroSimulationResults
     from microscopic.statistics.dump import save_hdf5, parse_tripinfo, parse_collision, parse_queue
+    from microscopic.statistics.async_stats import save_async_stats_hdf5
     from microscopic.visualisation.base import MicroVisualiser
 
     scenario = Scenario(scenario_name)
@@ -104,12 +110,21 @@ def run_single(
         run_id=run_id,
     )
 
-    controller = MPCController(
-        macro_env=macro_env,
-        micro_env=micro_env,
-        solver=solver,
-        solve_interval_steps=micro_cfg["solve_interval_steps"],
-    )
+    if use_async_controller:
+        controller = AsyncMPCController(
+            macro_env=macro_env,
+            micro_env=micro_env,
+            solver=solver,
+            solve_interval_steps=micro_cfg["solve_interval_steps"],
+            step_length=sim_config.step_length,
+        )
+    else:
+        controller = MPCController(
+            macro_env=macro_env,
+            micro_env=micro_env,
+            solver=solver,
+            solve_interval_steps=micro_cfg["solve_interval_steps"],
+        )
 
     sim = SUMOBaseSimulation(sim_config, micro_env, controller, stats)
 
@@ -139,6 +154,16 @@ def run_single(
 
     save_hdf5(stats, out_dir / "simulation.h5")
 
+    if use_async_controller and isinstance(controller, AsyncMPCController):
+        async_path = out_dir / "async_mpc_stats.h5"
+        save_async_stats_hdf5(controller.async_stats, async_path)
+        n_completed = sum(1 for r in controller.async_stats.records if r.status == "completed")
+        mean_solve = (
+            sum(r.solve_time_reported for r in controller.async_stats.records) / n_completed
+            if n_completed else 0.0
+        )
+        print(f"[async-mpc] {n_completed} cycles | mean solve={mean_solve:.3f}s | stats → {async_path}")
+
     if show_dashboard:
         vis = MicroVisualiser(stats, edge_labels=list(micro_cfg["edge_to_segment_map"].keys()))
         dash_path = vis.plot_dashboard(
@@ -166,6 +191,7 @@ def run_batch(
     base_port: int = 8813,
     output_root: str = "runs",
     no_gui: bool = True,
+    use_async_controller: bool = True,
 ) -> list:
     """
     Run multiple control types in parallel using isolated processes.
@@ -185,6 +211,7 @@ def run_batch(
             port=port,
             output_root=output_root,
             no_gui=no_gui,
+            use_async_controller=use_async_controller,
         )
         p = multiprocessing.Process(
             target=_batch_worker,
@@ -209,12 +236,13 @@ def run_batch(
 class _SimFactory:
     """Picklable factory that creates and runs one simulation."""
 
-    def __init__(self, scenario_name, control_type, port, output_root, no_gui):
+    def __init__(self, scenario_name, control_type, port, output_root, no_gui, use_async_controller=True):
         self.scenario_name = scenario_name
         self.control_type = control_type
         self.port = port
         self.output_root = output_root
         self.no_gui = no_gui
+        self.use_async_controller = use_async_controller
 
     def __call__(self):
         return run_single(
@@ -224,6 +252,7 @@ class _SimFactory:
             output_root=self.output_root,
             port=self.port,
             show_dashboard=True,
+            use_async_controller=self.use_async_controller,
         )
 
 
@@ -238,13 +267,20 @@ def main() -> None:
     parser = argparse.ArgumentParser(description="Run SUMO-MPC closed-loop simulation")
     parser.add_argument("--scenario", default="a2_motorway", help="Scenario folder name")
     parser.add_argument("--solver", nargs="+", default=["rm"],
-                        choices=["rm", "vsl", "coordinated"],
+                        choices=["rm", "vsl", "coordinated", "base"],
                         help="Solver type(s). Multiple values trigger --batch automatically.")
     parser.add_argument("--no-gui", action="store_true", help="Run SUMO without GUI")
     parser.add_argument("--batch", action="store_true", help="Run solver types in parallel")
     parser.add_argument("--workers", type=int, default=2, help="Number of parallel workers")
     parser.add_argument("--port", type=int, default=8813, help="Base TraCI port")
     parser.add_argument("--output", default="runs", help="Root output directory")
+    parser.add_argument(
+        "--no-async-controller",
+        dest="use_async_controller",
+        action="store_false",
+        default=True,
+        help="Use synchronous (blocking) MPCController instead of AsyncMPCController",
+    )
     args = parser.parse_args()
 
     if "SUMO_HOME" not in os.environ:
@@ -258,6 +294,7 @@ def main() -> None:
             base_port=args.port,
             output_root=args.output,
             no_gui=args.no_gui,
+            use_async_controller=args.use_async_controller,
         )
     else:
         run_single(
@@ -266,6 +303,7 @@ def main() -> None:
             no_gui=args.no_gui,
             output_root=args.output,
             port=args.port,
+            use_async_controller=args.use_async_controller,
         )
 
 

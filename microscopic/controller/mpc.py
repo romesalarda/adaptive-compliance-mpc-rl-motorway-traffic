@@ -7,6 +7,7 @@ import numpy as np
 from microscopic.controller.base import BaseSUMOController
 from macroscopic.simulation.environment import MacroEnvironment
 from microscopic.simulation.environment import MicroEnvironment
+from macroscopic.logger import LOGGER
 
 if TYPE_CHECKING:
     from macroscopic.solvers.base import BaseMPCSolver
@@ -38,16 +39,17 @@ class MPCController(BaseSUMOController):
         """
         demands_forecast = self._get_demands_forecast()
 
-        try:
-            solution = self.solver.solve_single_step(
-                rho=state["rho"],
-                v=state["v"],
-                w=state["w"],
-                demands_forecast=demands_forecast,
-                current_time=None,
-            )
-        except NotImplementedError:
-            return {}
+        # try:
+        solution = self.solver.solve_single_step(
+            rho=state["rho"],
+            v=state["v"],
+            w=state["w"],
+            demands_forecast=demands_forecast,
+            current_time=self._current_step,
+        )
+        # except NotImplementedError:
+        #     LOGGER.warning("solve single step is not implemented for class %s " % self.solver.__class__)
+        #     return {}
 
         controls: dict = {}
 

@@ -51,3 +51,48 @@ class MpcRMSimulation(BaseMPCSolver):
             if k % 100 == 0:
                 LOGGER.info(f"step {k} of {self.environment.demands.shape[0]}")
 
+    def solve_single_step(self, rho, v, w, demands_forecast, current_time=None):
+
+        LOGGER.info("\n Solving single step")
+        F = self.get_function()
+        r_last = cs.DM.ones(self.r.size1(), 1) if self._r_last_value is None else self._r_last_value
+
+        d_hat = demands_forecast
+        LOGGER.info(rho)
+
+        rho_safe = cs.fmax(rho, 1e-3)
+        v_safe = cs.fmax(v, 1e-3)
+        w_safe = cs.fmax(w, 0)
+
+        rho_safe = np.squeeze(rho_safe.full())
+        v_safe   = np.squeeze(v_safe.full())
+        w_safe   = np.squeeze(w_safe.full())
+
+        sol = self.MPC.solve(
+            pars={
+                "rho_0": rho_safe,
+                "v_0": v_safe,
+                "w_0": w_safe,
+                "d": d_hat.T,
+                "r_last": r_last,
+            },
+        )
+        # sol_prev = sol.vals
+        r_first = sol.vals["r"][:, 0]
+        if r_first[0] < 0:
+            r_first = [0]
+
+        self._r_last_value = r_first
+
+        LOGGER.info("current time is + %s " % str(current_time))
+
+        rho, v, w, q, q_on = self.get_next_states(rho, v, w, r_first, current_time, F=F)
+
+        self.store_step(rho, v, w, q, q_on, r_last=r_last)
+
+        print(sol.vals["r"])
+        LOGGER.info("\nMPC solved with results :" + str(r_first))
+
+        return {
+            "r": r_first[0]
+        }

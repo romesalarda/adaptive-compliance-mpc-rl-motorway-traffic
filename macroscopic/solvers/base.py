@@ -74,6 +74,7 @@ class BaseMPCSolver(BaseSimulation):
         self._w: cs.SX = None  # Placeholder for the congestion queue state, to be defined in subclasses
         self._r: cs.SX = None  # Placeholder for the ramp metering rate state, to be defined in subclasses
         self._r_last: cs.SX = None  # Placeholder for the last ramp metering rate state, to be defined in subclasses
+        self._r_last_value = None
 
         self.number_of_segments = sum(link.N for _, _, link in self.environment.network.links)
         self.number_of_origins = len(self.environment.network.origins)
@@ -491,3 +492,10 @@ class BaseMPCSolver(BaseSimulation):
         self._Np = None
         self._Nc = None
         self._M = None
+
+class DummyMPCSolver(BaseMPCSolver):
+
+    def solve_single_step(self, rho, v, w, demands_forecast, current_time=None):
+        return {
+            "r": 1,
+        }

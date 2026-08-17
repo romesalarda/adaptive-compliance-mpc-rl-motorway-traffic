@@ -194,6 +194,7 @@ class RampMeteringMixin:
     def _apply_tl_state(self, tl_id: str, phase: str) -> None:
         n_links = len(traci.trafficlight.getControlledLinks(tl_id))
         state_str = phase * max(1, n_links)
+        
         traci.trafficlight.setRedYellowGreenState(tl_id, state_str)
 
     def surrender_ramp_to_manual(self, tl_id: str) -> None:

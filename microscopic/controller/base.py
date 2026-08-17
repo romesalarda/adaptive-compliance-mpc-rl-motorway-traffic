@@ -80,4 +80,7 @@ class BaseSUMOController:
     def restore_ramp_control(self, tl_id: str) -> None:
         self.micro_env.restore_ramp_control(tl_id)
 
+    def stop(self, timeout: float = 5.0) -> None:
+        """No-op for synchronous controllers; overridden by AsyncMPCController."""
+
     

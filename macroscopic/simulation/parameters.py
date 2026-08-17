@@ -26,7 +26,7 @@ class BaseParameters:
     
     # defintions from: https://web.dcsc.tudelft.nl/~bdeschutter/research/phd_theses/phd_hegyi_2004.pdf
     DEFAULTS = {
-        "T": 10 / 3600, # time step size of the freeway simulation, typical value is 10 seconds
+        "T": 0.1 / 3600, # time step size of the freeway simulation, typical value is 10 seconds
         "Tfin": 2.5, # changed down from 2.5 to 1
         "L": 1,  # segment length in km (changed from 1000 to match main.py)
         "lanes": 2,
