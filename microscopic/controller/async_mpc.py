@@ -106,6 +106,10 @@ class AsyncMPCController(BaseSUMOController):
                 controls["v_ctrl"] = np.round(v_ctrl / 10) * 10
             if "r" in solution:
                 controls["r"] = np.atleast_1d(solution["r"])
+            # Pass predicted state trajectories for recording and visualisation
+            for key in ("rho_pred", "v_pred", "w_pred"):
+                if key in solution:
+                    controls[key] = solution[key]
 
             # Bundle push-time metadata so the main thread can compute delays
             meta = {
@@ -154,6 +158,7 @@ class AsyncMPCController(BaseSUMOController):
     # ------------------------------------------------------------------
 
     def on_step(self, step: int, env: MicroEnvironment, state: dict) -> None:
+        self._controls_received_this_step = False
         sim_time = step * self.step_length
 
         # ---- push state if solve interval has elapsed ----
@@ -205,6 +210,7 @@ class AsyncMPCController(BaseSUMOController):
         # Update tracked state used by SUMOBaseSimulation for stats recording
         self._last_controls = controls
         self._last_solve_time = controls.get("solve_time", 0.0)
+        self._controls_received_this_step = True
 
         self.async_stats.records.append(AsyncMPCSolveRecord(
             cycle_id=meta["_cycle_id"],
@@ -218,6 +224,9 @@ class AsyncMPCController(BaseSUMOController):
             state_v=state["v"].tolist(),
             state_w=state["w"].tolist(),
             state_queue_was_full=meta["_state_queue_was_full"],
+            rho_pred=controls["rho_pred"].tolist() if "rho_pred" in controls else [],
+            v_pred=controls["v_pred"].tolist() if "v_pred" in controls else [],
+            w_pred=controls["w_pred"].tolist() if "w_pred" in controls else [],
             status="completed",
         ))
 

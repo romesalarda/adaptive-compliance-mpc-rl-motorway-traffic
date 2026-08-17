@@ -74,11 +74,15 @@ class MicroSimulationResults:
         r.queue.append(state["w"].copy())
 
         if controls is not None:
+            has_controls = False
             if "v_ctrl" in controls:
                 r.v_ctrl_applied.append(np.atleast_1d(controls["v_ctrl"]).copy())
+                has_controls = True
             if "r" in controls:
                 r.r_applied.append(np.atleast_1d(controls["r"]).copy())
-            r.solve_steps.append(step)
+                has_controls = True
+            if has_controls:
+                r.solve_steps.append(step)
 
         if solve_time is not None:
             r.mpc_solve_times.append(solve_time)

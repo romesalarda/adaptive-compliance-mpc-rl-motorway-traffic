@@ -110,16 +110,16 @@ class SUMOBaseSimulation:
         self.env.update()
         self.env.step_metering()
 
-        was_solve = self.controller.should_solve(self._step)
         state = self.env.collect_state()
         self.controller.on_step(self._step, self.env, state)
 
+        received = self.controller._controls_received_this_step
         self.stats.record_step(
             step=self._step,
             time=self.simulation_time,
             state=state,
-            controls=self.controller._last_controls if was_solve else None,
-            solve_time=self.controller._last_solve_time if was_solve else None,
+            controls=self.controller._last_controls if received else None,
+            solve_time=self.controller._last_solve_time if received else None,
         )
 
         self.simulation_time += self.config.step_length

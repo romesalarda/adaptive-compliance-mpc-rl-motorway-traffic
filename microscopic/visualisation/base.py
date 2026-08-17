@@ -20,6 +20,7 @@ import numpy as np
 
 if TYPE_CHECKING:
     from microscopic.statistics.base import MicroSimulationResults
+    from microscopic.statistics.async_stats import AsyncMPCStats
     from macroscopic.statistics.base import MacroSimulationResults
 
 
@@ -281,3 +282,272 @@ class MicroVisualiser:
         out_path.parent.mkdir(parents=True, exist_ok=True)
         fig.write_html(str(out_path))
         return str(out_path)
+
+    # ------------------------------------------------------------------
+    # Async MPC detail dashboard
+    # ------------------------------------------------------------------
+
+    def plot_async_dashboard(
+        self,
+        async_stats: "AsyncMPCStats",
+        filename: str = "async_dashboard.html",
+        output_dir: str = ".",
+    ) -> str:
+        """
+        Rich Plotly dashboard for async MPC diagnostics.
+
+        Panels:
+          1. Solve timeline (Gantt): push→receive bar per cycle, queue-full markers
+          2. Solve latency per cycle (receive_sim - push_sim)
+          3. Solve time distributions: IPOPT reported vs wall push→receive
+          4. State pushed to MPC per cycle (rho / v / w per segment)
+          5. Predicted rho vs actual micro density per segment (when available)
+          6. Cumulative queue-full event count
+        """
+        try:
+            from plotly.subplots import make_subplots
+            import plotly.graph_objects as go
+        except ImportError:
+            raise ImportError("plotly is required. pip install plotly")
+
+        records = async_stats.records
+        if not records:
+            raise ValueError("No completed async MPC records to visualise.")
+
+        n_seg = len(self.labels)
+        colors = ["#1f77b4", "#ff7f0e", "#2ca02c", "#d62728", "#9467bd",
+                  "#8c564b", "#e377c2", "#7f7f7f"]
+
+        push_sim  = np.array([r.push_time_sim  for r in records])
+        recv_sim  = np.array([r.receive_time_sim for r in records])
+        solve_rep = np.array([r.solve_time_reported for r in records])
+        solve_wall = np.array([r.solve_time_wall for r in records])
+        cycle_ids  = np.array([r.cycle_id for r in records])
+        latency    = recv_sim - push_sim
+
+        has_predictions = any(r.rho_pred for r in records)
+        has_actual      = self.micro.density is not None
+        show_pred_vs_actual = has_predictions and has_actual
+
+        n_rows = 6
+        row_titles = [
+            "Solve Timeline (push → receive, per cycle)",
+            "Solve Latency per Cycle (s)",
+            "Solve Time Distribution",
+            "State Pushed to MPC — Density / Speed / Queue",
+            f"Predicted rho vs Actual Micro Density {'(per segment)' if show_pred_vs_actual else '(no predictions recorded)'}",
+            "Cumulative Queue-Full Events",
+        ]
+        row_heights = [0.18, 0.12, 0.12, 0.20, 0.24, 0.14]
+
+        fig = make_subplots(
+            rows=n_rows, cols=1,
+            shared_xaxes=False,
+            subplot_titles=row_titles,
+            vertical_spacing=0.055,
+            row_heights=row_heights,
+        )
+
+        # ── Row 1: Gantt timeline ────────────────────────────────────────────
+        for i, r in enumerate(records):
+            c = colors[i % len(colors)]
+            fig.add_trace(go.Bar(
+                x=[r.receive_time_sim - r.push_time_sim],
+                y=[f"cycle {r.cycle_id}"],
+                base=[r.push_time_sim],
+                orientation="h",
+                marker_color=c,
+                marker_opacity=0.55,
+                name=f"cycle {r.cycle_id}",
+                hovertemplate=(
+                    f"Cycle {r.cycle_id}<br>"
+                    f"Push: {r.push_time_sim:.1f}s<br>"
+                    f"Receive: {r.receive_time_sim:.1f}s<br>"
+                    f"Latency: {r.receive_time_sim - r.push_time_sim:.2f}s<br>"
+                    f"Solve time: {r.solve_time_reported:.3f}s<extra></extra>"
+                ),
+                showlegend=False,
+            ), row=1, col=1)
+            # inner bar showing IPOPT solve time only
+            fig.add_trace(go.Bar(
+                x=[r.solve_time_reported],
+                y=[f"cycle {r.cycle_id}"],
+                base=[r.push_time_sim],
+                orientation="h",
+                marker_color=c,
+                marker_opacity=0.95,
+                showlegend=False,
+                hoverinfo="skip",
+            ), row=1, col=1)
+
+        # queue-full markers on timeline
+        if async_stats.queue_events:
+            qf_times = [ev["time_sim"] for ev in async_stats.queue_events]
+            # find closest cycle y label for vertical placement
+            for qt in qf_times:
+                fig.add_vline(x=qt, line_dash="dot", line_color="red",
+                              annotation_text="Q-full", annotation_font_size=8, row=1, col=1)
+
+        fig.update_xaxes(title_text="Simulation time (s)", row=1, col=1)
+        fig.update_yaxes(title_text="Cycle", autorange="reversed", row=1, col=1)
+        fig.update_layout(barmode="overlay")
+
+        # ── Row 2: Latency line ──────────────────────────────────────────────
+        fig.add_trace(go.Scatter(
+            x=push_sim, y=latency,
+            mode="lines+markers",
+            name="Latency (s)",
+            line=dict(color="#1f77b4"),
+            hovertemplate="Push t=%.1fs<br>Latency: %.3fs<extra></extra>" % (0, 0),
+        ), row=2, col=1)
+        # solve_interval reference line
+        solve_interval_s = float(np.median(np.diff(push_sim))) if len(push_sim) > 1 else 0
+        if solve_interval_s > 0:
+            fig.add_hline(y=solve_interval_s, line_dash="dash", line_color="orange",
+                          annotation_text=f"Solve interval ({solve_interval_s:.0f}s)",
+                          annotation_font_size=9, row=2, col=1)
+        fig.update_xaxes(title_text="Push time (s)", row=2, col=1)
+        fig.update_yaxes(title_text="Latency (s)", row=2, col=1)
+
+        # ── Row 3: Histograms ────────────────────────────────────────────────
+        fig.add_trace(go.Histogram(
+            x=solve_rep, name="IPOPT reported (s)",
+            opacity=0.75, nbinsx=20,
+            marker_color="#2ca02c",
+        ), row=3, col=1)
+        fig.add_trace(go.Histogram(
+            x=solve_wall, name="Wall push→receive (s)",
+            opacity=0.55, nbinsx=20,
+            marker_color="#d62728",
+        ), row=3, col=1)
+        fig.update_layout(barmode="overlay")
+        fig.update_xaxes(title_text="Time (s)", row=3, col=1)
+        fig.update_yaxes(title_text="Count", row=3, col=1)
+
+        # ── Row 4: State pushed to MPC ───────────────────────────────────────
+        state_rho = np.array([r.state_rho for r in records if r.state_rho])   # (n_cyc, n_seg)
+        state_v   = np.array([r.state_v   for r in records if r.state_v])
+        state_w   = np.array([r.state_w   for r in records if r.state_w])
+        push_times_valid = push_sim[: len(state_rho)]
+
+        if state_rho.ndim == 2:
+            for i in range(min(state_rho.shape[1], n_seg)):
+                c = colors[i % len(colors)]
+                lbl = self.labels[i] if i < len(self.labels) else f"seg{i+1}"
+                fig.add_trace(go.Scatter(
+                    x=push_times_valid, y=state_rho[:, i],
+                    mode="lines+markers", marker_size=4,
+                    name=f"rho pushed {lbl}", line=dict(color=c),
+                    legendgroup=f"pushed_{i}", showlegend=True,
+                    customdata=cycle_ids[: len(state_rho)],
+                    hovertemplate="t=%{x:.1f}s cycle=%{customdata}<br>rho=%{y:.2f}<extra></extra>",
+                ), row=4, col=1)
+        if state_v.ndim == 2:
+            for i in range(min(state_v.shape[1], n_seg)):
+                c = colors[i % len(colors)]
+                lbl = self.labels[i] if i < len(self.labels) else f"seg{i+1}"
+                fig.add_trace(go.Scatter(
+                    x=push_times_valid, y=state_v[:, i],
+                    mode="lines", line=dict(color=c, dash="dash"),
+                    name=f"v pushed {lbl}", legendgroup=f"pushed_{i}", showlegend=False,
+                ), row=4, col=1)
+        if state_w.ndim == 2:
+            for j in range(state_w.shape[1]):
+                fig.add_trace(go.Scatter(
+                    x=push_times_valid, y=state_w[:, j],
+                    mode="lines+markers", marker_size=3, marker_symbol="square",
+                    name=f"w pushed origin{j}",
+                    line=dict(color="#8c564b", dash="dot"),
+                    showlegend=True,
+                ), row=4, col=1)
+        fig.update_xaxes(title_text="Push time (s)", row=4, col=1)
+        fig.update_yaxes(title_text="rho (solid) / v (dash) / w (dot)", row=4, col=1)
+
+        # ── Row 5: Predicted rho vs actual density ───────────────────────────
+        if show_pred_vs_actual:
+            micro_times = np.asarray(self.micro.run.timestamps)  # seconds
+            step_len_s = float(micro_times[1] - micro_times[0]) if len(micro_times) > 1 else 1.0
+
+            for seg_i in range(n_seg):
+                c = colors[seg_i % len(colors)]
+                lbl = self.labels[seg_i] if seg_i < len(self.labels) else f"seg{seg_i+1}"
+
+                # Actual micro density for this segment
+                fig.add_trace(go.Scatter(
+                    x=micro_times, y=self.micro.density[:, seg_i],
+                    mode="lines", line=dict(color=c, width=1.5),
+                    name=f"actual {lbl}", legendgroup=f"pred_{seg_i}", showlegend=True,
+                ), row=5, col=1)
+
+                # Predicted rollouts from each cycle (semi-transparent)
+                for r in records:
+                    if not r.rho_pred:
+                        continue
+                    pred = np.array(r.rho_pred)  # (horizon, n_seg)
+                    if seg_i >= pred.shape[1]:
+                        continue
+                    horizon = pred.shape[0]
+                    pred_times = r.push_time_sim + np.arange(1, horizon + 1) * step_len_s
+                    fig.add_trace(go.Scatter(
+                        x=pred_times, y=pred[:, seg_i],
+                        mode="lines", line=dict(color=c, width=0.8, dash="dot"),
+                        opacity=0.35,
+                        name=f"pred {lbl} c{r.cycle_id}",
+                        legendgroup=f"pred_{seg_i}", showlegend=False,
+                        hovertemplate=f"Cycle {r.cycle_id}<br>rho_pred={seg_i}<br>%{{y:.2f}}<extra></extra>",
+                    ), row=5, col=1)
+        else:
+            fig.add_annotation(
+                text="No prediction data available (solver did not return rho_pred)",
+                xref="paper", yref="paper", x=0.5, y=0.5,
+                showarrow=False, font=dict(size=12),
+                row=5, col=1,
+            )
+        fig.update_xaxes(title_text="Simulation time (s)", row=5, col=1)
+        fig.update_yaxes(title_text="Density (veh/km/lane)", row=5, col=1)
+
+        # ── Row 6: Cumulative queue-full events ──────────────────────────────
+        if async_stats.queue_events:
+            qf_sim_times = sorted(ev["time_sim"] for ev in async_stats.queue_events)
+            cum_counts = list(range(1, len(qf_sim_times) + 1))
+            fig.add_trace(go.Scatter(
+                x=qf_sim_times, y=cum_counts,
+                mode="lines+markers",
+                name="Cumulative queue-full events",
+                line=dict(color="red", shape="hv"),
+                hovertemplate="t=%{x:.1f}s<br>Cumulative: %{y}<extra></extra>",
+            ), row=6, col=1)
+        else:
+            fig.add_annotation(
+                text="No queue-full events recorded",
+                xref="paper", yref="paper", x=0.5, y=0.04,
+                showarrow=False, font=dict(size=11),
+            )
+        fig.update_xaxes(title_text="Simulation time (s)", row=6, col=1)
+        fig.update_yaxes(title_text="Count", row=6, col=1)
+
+        # ── Layout ───────────────────────────────────────────────────────────
+        n_completed = sum(1 for r in records if r.status == "completed")
+        mean_ipopt = float(np.mean(solve_rep)) if len(solve_rep) else 0
+        mean_lat   = float(np.mean(latency)) if len(latency) else 0
+        subtitle = (
+            f"{n_completed} completed cycles | "
+            f"mean IPOPT: {mean_ipopt:.3f}s | "
+            f"mean latency: {mean_lat:.2f}s | "
+            f"queue-full events: {len(async_stats.queue_events)}"
+        )
+        fig.update_layout(
+            title=dict(text=(
+                f"Async MPC diagnostics — {self.micro.scenario_id} [{self.micro.solver_type}]<br>"
+                f"<sup>{subtitle}</sup>"
+            )),
+            height=1800,
+            legend=dict(orientation="v", x=1.01, font=dict(size=9)),
+            barmode="overlay",
+        )
+
+        out_path = Path(output_dir) / filename
+        out_path.parent.mkdir(parents=True, exist_ok=True)
+        fig.write_html(str(out_path))
+        return str(out_path)
+

@@ -35,6 +35,7 @@ class BaseSUMOController:
 
         self._last_controls: dict = {}
         self._last_solve_time: float = 0.0
+        self._controls_received_this_step: bool = False
 
     def should_solve(self, step: int) -> bool:
         return step % self.solve_interval_steps == 0
@@ -60,6 +61,7 @@ class BaseSUMOController:
 
     def on_step(self, step: int, env: MicroEnvironment, state: dict) -> None:
         """Called every simulation step; runs the solve+apply cycle when due."""
+        self._controls_received_this_step = False
         if not self.should_solve(step):
             return
         t0 = time.perf_counter()
@@ -68,6 +70,7 @@ class BaseSUMOController:
         if controls:
             self.apply_controls(controls, env)
             self._last_controls = controls
+            self._controls_received_this_step = True
 
     # ------------------------------------------------------------------
     # Manual override

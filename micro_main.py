@@ -173,6 +173,14 @@ def run_single(
         )
         print(f"Dashboard saved to {dash_path}")
 
+        if use_async_controller and isinstance(controller, AsyncMPCController):
+            async_dash_path = vis.plot_async_dashboard(
+                async_stats=controller.async_stats,
+                filename="async_dashboard.html",
+                output_dir=str(out_dir),
+            )
+            print(f"Async dashboard saved to {async_dash_path}")
+
     print(
         f"[{scenario_name}/{control_type}] "
         f"TTS={stats.overview.total_time_spent:.1f} veh·h | "

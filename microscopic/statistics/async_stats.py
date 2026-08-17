@@ -20,6 +20,10 @@ class AsyncMPCSolveRecord:
     state_rho: list[float] = field(default_factory=list)
     state_v: list[float] = field(default_factory=list)
     state_w: list[float] = field(default_factory=list)
+    # MPC predicted trajectories from solver; shape (horizon, n_seg/n_orig) stored as list-of-lists
+    rho_pred: list = field(default_factory=list)
+    v_pred: list = field(default_factory=list)
+    w_pred: list = field(default_factory=list)
     state_queue_was_full: bool = False
     status: str = "incomplete"       # 'completed' | 'incomplete'
 
@@ -84,6 +88,18 @@ def save_async_stats_hdf5(stats: AsyncMPCStats, path: str | Path) -> None:
                         if a:
                             padded[i, : len(a)] = a
                     sg.create_dataset(key, data=padded, compression="gzip")
+
+            # Predicted trajectories: (n_cycles, horizon, n_seg) — only stored when solver exposes them
+            for key in ("rho_pred", "v_pred", "w_pred"):
+                arrays = [getattr(r, key) for r in stats.records]
+                if any(a for a in arrays):
+                    arr_3d = np.array([np.array(a, dtype=np.float32) if a else np.full((1, 1), np.nan, dtype=np.float32) for a in arrays], dtype=object)
+                    # All shapes equal when solver returns predictions; stack safely
+                    try:
+                        stacked = np.stack([np.array(a, dtype=np.float32) for a in arrays])
+                        sg.create_dataset(key, data=stacked, compression="gzip")
+                    except (ValueError, TypeError):
+                        pass  # skip if shapes are inconsistent
 
         if stats.queue_events:
             eg = f.create_group("queue_events")

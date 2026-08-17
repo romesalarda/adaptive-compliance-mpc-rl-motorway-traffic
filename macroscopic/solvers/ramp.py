@@ -93,6 +93,15 @@ class MpcRMSimulation(BaseMPCSolver):
         print(sol.vals["r"])
         LOGGER.info("\nMPC solved with results :" + str(r_first))
 
-        return {
-            "r": r_first[0]
-        }
+        # sol.vals state arrays are shape (n_seg/n_orig, horizon+1); col 0 = initial state
+        result: dict = {"r": r_first[0]}
+        try:
+            rho_pred = np.array(sol.vals["rho"])[:, 1:].T   # (horizon, n_seg)
+            v_pred   = np.array(sol.vals["v"])[:, 1:].T
+            w_pred   = np.array(sol.vals["w"])[:, 1:].T
+            result["rho_pred"] = rho_pred
+            result["v_pred"]   = v_pred
+            result["w_pred"]   = w_pred
+        except (KeyError, Exception):
+            pass
+        return result
