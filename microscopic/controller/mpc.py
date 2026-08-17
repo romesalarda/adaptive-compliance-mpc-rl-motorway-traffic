@@ -13,7 +13,7 @@ if TYPE_CHECKING:
     from macroscopic.solvers.base import BaseMPCSolver
 
 
-class MPCController(BaseSUMOController):
+class SynchronousMPCController(BaseSUMOController):
     """
     Closed-loop controller: feeds SUMO state into the macroscopic MPC solver
     and applies resulting speed limits and metering rates back to SUMO.

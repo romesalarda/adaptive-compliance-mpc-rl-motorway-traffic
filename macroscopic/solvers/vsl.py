@@ -8,6 +8,7 @@ from macroscopic.solvers.base import BaseMPCSolver
 from typing import TypeVar
 
 import casadi as cs
+import numpy as np
 
 SymType = TypeVar("SymType", cs.SX, cs.MX)
 
@@ -24,6 +25,8 @@ class MpcVSLSimulation(BaseMPCSolver):
         super().__init__(environment, Np, Nc, M, **kwargs)
         self._v_ctrl_last = None  # Initialize the last speed limit control variable
         self._v_ctrl = None  # Initialize the speed limit control variable
+
+        self._v_ctrl_last_value = None  # Store the last value of v_ctrl for use in the next iteration
 
     @property
     def v_ctrl_last(self):
@@ -158,3 +161,44 @@ class MpcVSLSimulation(BaseMPCSolver):
 
             if k % 100 == 0:
                 LOGGER.info(f"step {k} of {self.environment.demands.shape[0]}")
+
+    def solve_single_step(self, rho, v, w, demands_forecast, current_time=None):
+    
+        F = self.get_function()
+        self._v_ctrl_last_value = self.environment.parameters.v_ctrl if self._v_ctrl_last_value is None else self._v_ctrl_last_value
+
+        d_hat = demands_forecast
+
+        rho_safe = cs.fmax(rho, 1e-3)
+        v_safe = cs.fmax(v, 1e-3)
+        w_safe = cs.fmax(w, 0)
+
+        rho_safe = np.squeeze(rho_safe.full())
+        v_safe   = np.squeeze(v_safe.full())
+        w_safe   = np.squeeze(w_safe.full())
+
+        sol = self.MPC.solve(
+            pars={
+                "rho_0": rho_safe,
+                "v_0": v_safe,
+                "w_0": w_safe,
+                "d": d_hat.T,
+                "v_ctrl_last": self._v_ctrl_last_value,
+            },
+        )
+        LOGGER.info(f"\nsolve_single_step: v_ctrl={sol.vals['v_ctrl']} for cycle at t={current_time}")
+
+        self._v_ctrl_last_value = sol.vals["v_ctrl"][:, 0]
+        r_first = sol.vals["r"][:, 0]
+
+        LOGGER.info(f"solve_single_step: v_ctrl={self._v_ctrl_last_value}, r={r_first} at t={current_time}")
+
+        rho, v, w, q, q_on = self.get_next_states(rho, v, w, self._v_ctrl_last_value, r_first, current_time, F=F)
+
+        self.store_step(rho, v, w, q, q_on, v_ctrl_last=self._v_ctrl_last_value, omit_if_none=True)
+
+        # sol.vals state arrays are shape (n_seg/n_orig, horizon+1); col 0 = initial state
+        result: dict = {"v_ctrl": self._v_ctrl_last_value, "r": r_first[0]}
+
+        result.update(self.parse_predictions(sol.vals))
+        return result

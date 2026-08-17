@@ -52,11 +52,13 @@ class BaseSUMOController:
         """Push computed controls into the environment."""
         if "v_ctrl" in controls and env.vsl_edge_ids:
             for edge_id, speed_kmh in zip(env.vsl_edge_ids, controls["v_ctrl"]):
+                print(f"[BaseSUMOController] Applying VSL {float(speed_kmh):.1f} km/h to edge {edge_id}")
                 env.set_variable_speed_limit(edge_id, float(speed_kmh))
 
         if "r" in controls and env.ramp_tl_map:
             rates = np.atleast_1d(controls["r"])
             for tl_id, rate in zip(env.ramp_tl_map.values(), rates):
+                print(f"[BaseSUMOController] Applying ramp metering rate {float(rate):.2f} to TL {tl_id}")
                 env.set_ramp_metering_rate(tl_id, float(rate))
 
     def on_step(self, step: int, env: MicroEnvironment, state: dict) -> None:

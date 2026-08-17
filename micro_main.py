@@ -36,22 +36,27 @@ def _build_solver(macro_env, control_type: str):
     """Instantiate and setup the macro solver for the given control type."""
     from macroscopic.solvers import MpcRMSimulation, MpcVSLSimulation, MpcCoordinatedSimulation, DummyMPCSolver
 
-    common = dict(Np=7, Nc=3, M=6, function_compactness=2)
+    common = dict(Np=7, Nc=3, M=6, function_compactness=2, objective_weights=macro_env.objective_weights)
     # TODO: fix initial conditions
     if control_type == "rm":
         solver = MpcRMSimulation(environment=macro_env, **common)
     elif control_type == "vsl":
-        solver = MpcVSLSimulation(environment=macro_env, **common)
+        solver = MpcVSLSimulation(
+            environment=macro_env, 
+            **common,
+            initial_conditions={
+                macro_env.network.origins_by_name["O1"]: {"v_ctrl": float("inf")},
+            },
+        )
     elif control_type == "coordinated":
         solver = MpcCoordinatedSimulation(
-                                        environment=macro_env, 
-                                        Np=7, Nc=5, M=6,
-                                        function_compactness=2,
-                                        objective_weights=macro_env.objective_weights,
-                                        initial_conditions={
-                                            macro_env.network.origins_by_name["O1"]: {"v_ctrl": float("inf")},
-                                        }
-                                    )
+            environment=macro_env, 
+            **common,
+            Np=7, Nc=5, M=6,
+            initial_conditions={
+                macro_env.network.origins_by_name["O1"]: {"v_ctrl": float("inf")},
+            }
+        )
     elif control_type == "base":
         solver = DummyMPCSolver(environment=macro_env, **common)
 
@@ -80,7 +85,7 @@ def run_single(
     """
     from scenarios import Scenario
     from microscopic.simulation.base import SimulationConfig, SUMOBaseSimulation
-    from microscopic.controller.mpc import MPCController
+    from microscopic.controller.mpc import SynchronousMPCController
     from microscopic.controller.async_mpc import AsyncMPCController
     from microscopic.statistics.base import MicroSimulationResults
     from microscopic.statistics.dump import save_hdf5, parse_tripinfo, parse_collision, parse_queue
@@ -126,7 +131,7 @@ def run_single(
             step_length=sim_config.step_length,
         )
     else:
-        controller = MPCController(
+        controller = SynchronousMPCController(
             macro_env=macro_env,
             micro_env=micro_env,
             solver=solver,

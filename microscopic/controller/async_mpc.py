@@ -107,7 +107,7 @@ class AsyncMPCController(BaseSUMOController):
                 )
             except Exception as exc:
                 LOGGER.error("[AsyncMPC] solve_single_step failed (cycle %d): %s", state["_cycle_id"], exc)
-                continue
+                raise exc                
 
             LOGGER.info("[AsyncMPC] cycle %d solved in %.3fs (sim t=%.1fs)",
                         state["_cycle_id"],
@@ -222,8 +222,15 @@ class AsyncMPCController(BaseSUMOController):
         except queue.Empty:
             return
         else:
-            LOGGER.info("[AsyncMPC] received controls for cycle %d at t=%.1fs", meta["_cycle_id"], sim_time)
+            LOGGER.info("\n[AsyncMPC] received controls for cycle %d at t=%.1fs", meta["_cycle_id"], sim_time)
 
+            v_ctrl = controls.get("v_ctrl", None)
+            r = controls.get("r", None)
+            if v_ctrl is not None:
+                LOGGER.info("[AsyncMPC] received v_ctrl=%s for cycle %d at t=%.1fs", v_ctrl.tolist(), meta["_cycle_id"], sim_time)
+            if r is not None:
+                LOGGER.info("[AsyncMPC] received r=%s for cycle %d at t=%.1fs", r.tolist(), meta["_cycle_id"], sim_time)
+                
         receive_wall = time.perf_counter()
 
         # Update tracked state used by SUMOBaseSimulation for stats recording

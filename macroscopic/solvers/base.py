@@ -482,6 +482,27 @@ class BaseMPCSolver(BaseSimulation):
         '''
         raise NotImplementedError("The '_save_single_step_solution' method must be implemented in subclasses of BaseMPCSolver.")
 
+    def parse_predictions(self, solution: dict) -> dict:
+        '''
+        Parse the predictions from the solution obtained from the MPC solver. This method extracts the predicted traffic density, speed, and congestion queue states over the prediction horizon.
+
+        Args:
+            solution (dict): Solution obtained from the MPC solver.
+        Returns:
+            dict: Parsed predictions containing traffic density, speed, and congestion queue states.s
+        '''
+        results = {}
+        try:
+            rho_pred = np.array(solution["rho"])[:, 1:].T   # (horizon, n_seg)
+            v_pred   = np.array(solution["v"])[:, 1:].T
+            w_pred   = np.array(solution["w"])[:, 1:].T
+            results["rho_pred"] = rho_pred
+            results["v_pred"]   = v_pred
+            results["w_pred"]   = w_pred
+        except (KeyError, Exception):
+            LOGGER.error("Failed to parse predictions from the solution. Ensure that the solution contains 'rho', 'v', and 'w' keys with appropriate values.")
+        return results
+
     def reset(self):
         '''
         Reset the solver to its initial state. This method clears any stored simulation results and resets the internal states of the solver, allowing for a fresh start for a new simulation run.
