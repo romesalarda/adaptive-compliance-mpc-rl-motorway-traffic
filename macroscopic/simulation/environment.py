@@ -12,12 +12,16 @@ class MacroEnvironment:
             parameters: BaseParameters,
             network: Network,
             demands, 
-            objective_weights: dict = None        
+            objective_weights: dict = None,
+            solver_config: dict = None,
+            link_class_name: str = None,
         ):
         self.parameters = parameters
         self.network = network
         self.demands = demands
         self.objective_weights = objective_weights or {}
+        self.solver_config = solver_config or {}
+        self.link_class_name = link_class_name  # e.g. "FrejoLinkWithVsl", "CarlsonLinkWithVsl", "Link"
         
         self.id = str(uuid.uuid4())  # Unique identifier for the environment instance
         self.is_ready = False  # Flag to indicate if the environment is ready for simulation

@@ -78,7 +78,14 @@ def _build_solver(macro_env, control_type: str):
     """Instantiate and setup the macro solver for the given control type."""
     from macroscopic.solvers import MpcRMSimulation, MpcVSLSimulation, MpcCoordinatedSimulation, DummyMPCSolver
 
-    common = dict(Np=7, Nc=3, M=6, function_compactness=2, objective_weights=macro_env.objective_weights)
+    sc = macro_env.solver_config
+    common = dict(
+        Np=sc.get("Np", 7),
+        Nc=sc.get("Nc", 3),
+        M=sc.get("M", 6),
+        function_compactness=sc.get("function_compactness", 2),
+        objective_weights=macro_env.objective_weights,
+    )
     # TODO: fix initial conditions
     if control_type == "rm":
         solver = MpcRMSimulation(environment=macro_env, **common)
@@ -92,10 +99,8 @@ def _build_solver(macro_env, control_type: str):
         )
     elif control_type == "coordinated":
         solver = MpcCoordinatedSimulation(
-            environment=macro_env, 
-            Np=7, Nc=5, M=6,
-            function_compactness=2,
-            objective_weights=macro_env.objective_weights,
+            environment=macro_env,
+            **common,
             initial_conditions={
                 macro_env.network.origins_by_name["O1"]: {"v_ctrl": float("inf")},
             }
@@ -166,12 +171,13 @@ def run_single(
         run_id=run_id,
     )
 
+    _solve_steps = macro_env.solver_config.get("solve_interval_steps", micro_cfg["solve_interval_steps"])
     if use_async_controller:
         controller = AsyncMPCController(
             macro_env=macro_env,
             micro_env=micro_env,
             solver=solver,
-            solve_interval_steps=micro_cfg["solve_interval_steps"],
+            solve_interval_steps=_solve_steps,
             step_length=sim_config.step_length,
         )
     else:
@@ -179,7 +185,7 @@ def run_single(
             macro_env=macro_env,
             micro_env=micro_env,
             solver=solver,
-            solve_interval_steps=micro_cfg["solve_interval_steps"],
+            solve_interval_steps=_solve_steps,
         )
 
     sim = SUMOBaseSimulation(sim_config, micro_env, controller, stats)

@@ -10,6 +10,8 @@
   },
   "control_parameters": {
     "vsl": {
+      "link_class": "FrejoLinkWithVsl",
+      "solver_config": { "Np": 7, "Nc": 3, "M": 6, "function_compactness": 2, "solve_interval_steps": 600 },
       "alpha_compliance": 0.1,
       "A": 0.8,
       "E": 3.0,
@@ -24,6 +26,8 @@
       }
     },
     "coordinated": {
+      "link_class": "FrejoLinkWithVsl",
+      "solver_config": { "Np": 7, "Nc": 5, "M": 6, "function_compactness": 2, "solve_interval_steps": 600 },
       "alpha_compliance": 0.5,
       "A": 0.4,
       "E": 1.5,
@@ -45,6 +49,7 @@
       }
     },
     "rm": {
+      "solver_config": { "Np": 7, "Nc": 3, "M": 6, "function_compactness": 2, "solve_interval_steps": 600 },
       "objective_weights": {
         "r_weight": 0.4,
         "seg4_safety": 1,
