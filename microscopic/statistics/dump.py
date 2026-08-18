@@ -19,6 +19,7 @@ SUMO output XML parsers return plain dicts to keep things dependency-light.
 
 from __future__ import annotations
 
+import json
 import xml.etree.ElementTree as ET
 from pathlib import Path
 from typing import TYPE_CHECKING
@@ -223,3 +224,71 @@ def parse_queue(xml_path: str | Path) -> dict:
             queues.setdefault(lid, []).append(q)
 
     return {"times": times, "queues": queues}
+
+
+# ---------------------------------------------------------------------------
+# Run metadata / index  (mirrors macro RunSet conventions)
+# ---------------------------------------------------------------------------
+
+
+def _write_json(path: Path, data) -> None:
+    with open(path, "w", encoding="utf-8") as fh:
+        json.dump(data, fh, indent=2)
+
+
+def save_run_metadata(
+    out_dir: Path,
+    stats,
+    macro_env,
+    micro_cfg: dict,
+    experiment: str = "default",
+    solver=None,
+) -> None:
+    """Save meta.json, parameters.json, network.json, demands.json, micro_config.json."""
+    from macroscopic.statistics.dump import (
+        serialize_parameters, serialize_network, serialize_demands, numpy_to_python,
+    )
+    out_dir = Path(out_dir)
+
+    meta: dict = {
+        "run_id": stats.run_id,
+        "run_type": stats.solver_type,
+        "timestamp": stats.timestamp,
+        "scenario_id": stats.scenario_id,
+        "experiment": experiment,
+        "solver_class": type(solver).__name__ if solver is not None else None,
+    }
+    if solver is not None:
+        meta["solver_config"] = numpy_to_python({
+            "Np": getattr(solver, "Np", None),
+            "Nc": getattr(solver, "Nc", None),
+            "M": getattr(solver, "M", None),
+        })
+        if hasattr(solver, "objective_weights"):
+            meta["objective_weights"] = numpy_to_python(solver.objective_weights)
+
+    _write_json(out_dir / "meta.json", meta)
+    _write_json(out_dir / "parameters.json", serialize_parameters(macro_env.parameters))
+    _write_json(out_dir / "network.json", serialize_network(macro_env.network))
+    _write_json(out_dir / "demands.json", serialize_demands(macro_env.demands, None))
+    _write_json(out_dir / "micro_config.json", micro_cfg)
+
+
+def update_micro_index(experiment_dir: Path, entry: dict) -> None:
+    """Append a run entry to the experiment-level index.json, creating it if absent."""
+    experiment_dir = Path(experiment_dir)
+    experiment_dir.mkdir(parents=True, exist_ok=True)
+    index_path = experiment_dir / "index.json"
+
+    if index_path.exists():
+        with open(index_path, "r", encoding="utf-8") as fh:
+            index = json.load(fh)
+    else:
+        index = {
+            "name": entry.get("scenario_id", ""),
+            "experiment": entry.get("experiment", ""),
+            "runs": [],
+        }
+
+    index["runs"].append(entry)
+    _write_json(index_path, index)

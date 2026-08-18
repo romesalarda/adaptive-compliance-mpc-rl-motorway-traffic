@@ -20,15 +20,57 @@ from __future__ import annotations
 import argparse
 import multiprocessing
 import os
+import re
+import shutil
 import sys
 import time
 import uuid
+from datetime import datetime
 from pathlib import Path
 
 from typing import TYPE_CHECKING
 
 if TYPE_CHECKING:
     from microscopic.statistics.base import MicroSimulationResults
+
+# ---- run directory helpers -------------------------------------------------
+
+def _resolve_run_dir(
+    scenario_name: str,
+    control_type: str,
+    experiment: str = "default",
+    output_root: str | None = None,
+) -> tuple[Path, str]:
+    """Return (out_dir, run_id). Uses scenario-relative path unless output_root overrides."""
+    if output_root is not None:
+        run_id = uuid.uuid4().hex[:8]
+        return Path(output_root) / scenario_name / f"{control_type}_{run_id}", run_id
+
+    base = Path("scenarios") / scenario_name / "micro-sim-runs" / experiment / control_type
+    counter = 1
+    if base.exists():
+        pattern = re.compile(rf"^{re.escape(control_type)}_(\d+)")
+        for d in base.iterdir():
+            if d.is_dir():
+                m = pattern.match(d.name)
+                if m:
+                    counter = max(counter, int(m.group(1)) + 1)
+
+    ts = datetime.now().strftime("%Y-%m-%dT%H-%M-%S")
+    run_id = f"{control_type}_{counter:03d}"
+    return base / f"{run_id}_{ts}", run_id
+
+
+def _copy_detectors(scenario_name: str, out_dir: Path) -> None:
+    """Copy SUMO detector outputs from micronet/detectors/ into the run folder."""
+    src = Path("scenarios") / scenario_name / "micronet" / "detectors"
+    if not src.exists():
+        return
+    dst = out_dir / "detectors"
+    dst.mkdir(parents=True, exist_ok=True)
+    for xml_file in src.glob("*.xml"):
+        shutil.copy2(xml_file, dst / xml_file.name)
+
 
 # ---- solver registry -------------------------------------------------------
 
@@ -74,11 +116,13 @@ def run_single(
     scenario_name: str,
     control_type: str,
     no_gui: bool = True,
-    output_root: str = "runs",
+    output_root: str | None = None,
     port: int = 8813,
     show_dashboard: bool = True,
     use_async_controller: bool = True,
     wait_for_input: bool = True,
+    experiment: str = "default",
+    redirect_detectors: bool = False,
 ) -> "MicroSimulationResults":
     """
     Build and run one closed-loop SUMO-MPC simulation.
@@ -89,7 +133,7 @@ def run_single(
     from microscopic.controller.mpc import SynchronousMPCController
     from microscopic.controller.async_mpc import AsyncMPCController
     from microscopic.statistics.base import MicroSimulationResults
-    from microscopic.statistics.dump import save_hdf5, parse_tripinfo, parse_collision, parse_queue
+    from microscopic.statistics.dump import save_hdf5, parse_tripinfo, parse_collision, parse_queue, save_run_metadata, update_micro_index
     from microscopic.statistics.async_stats import save_async_stats_hdf5
     from microscopic.visualisation.base import MicroVisualiser
 
@@ -101,8 +145,7 @@ def run_single(
 
     solver = _build_solver(macro_env, control_type)
 
-    run_id = uuid.uuid4().hex[:8]
-    out_dir = Path(output_root) / scenario_name / f"{control_type}_{run_id}"
+    out_dir, run_id = _resolve_run_dir(scenario_name, control_type, experiment, output_root)
     out_dir.mkdir(parents=True, exist_ok=True)
 
     sim_config = SimulationConfig.from_scenario(
@@ -149,6 +192,10 @@ def run_single(
 
     sim.run()
     sim.post_run()
+
+    if redirect_detectors:
+        _copy_detectors(scenario_name, out_dir)
+
     wall_time = time.perf_counter() - t0
 
     # finalize with geometry (all A2 segments are 1 km, 2 lanes)
@@ -172,6 +219,30 @@ def run_single(
     stats.overview.total_collisions = sumo_data["collision"]["num_collisions"]
 
     save_hdf5(stats, out_dir / "simulation.h5")
+
+    save_run_metadata(
+        out_dir=out_dir,
+        stats=stats,
+        macro_env=macro_env,
+        micro_cfg=micro_cfg,
+        experiment=experiment,
+        solver=solver,
+    )
+
+    if output_root is None:
+        experiment_dir = Path("scenarios") / scenario_name / "micro-sim-runs" / experiment
+        update_micro_index(
+            experiment_dir=experiment_dir,
+            entry={
+                "run_id": run_id,
+                "run_type": control_type,
+                "timestamp": stats.timestamp,
+                "solver_class": type(solver).__name__,
+                "scenario_id": scenario_name,
+                "experiment": experiment,
+                "path": str(out_dir.resolve()),
+            },
+        )
 
     if use_async_controller and isinstance(controller, AsyncMPCController):
         async_path = out_dir / "async_mpc_stats.h5"
@@ -225,9 +296,11 @@ def run_batch(
     control_types: list[str],
     n_workers: int = 2,
     base_port: int = 8813,
-    output_root: str = "runs",
+    output_root: str | None = None,
     no_gui: bool = True,
     use_async_controller: bool = True,
+    experiment: str = "default",
+    redirect_detectors: bool = False,
 ) -> list:
     """
     Run multiple control types in parallel using isolated processes.
@@ -248,6 +321,8 @@ def run_batch(
             output_root=output_root,
             no_gui=no_gui,
             use_async_controller=use_async_controller,
+            experiment=experiment,
+            redirect_detectors=redirect_detectors,
         )
         p = multiprocessing.Process(
             target=_batch_worker,
@@ -272,13 +347,15 @@ def run_batch(
 class _SimFactory:
     """Picklable factory that creates and runs one simulation."""
 
-    def __init__(self, scenario_name, control_type, port, output_root, no_gui, use_async_controller=True):
+    def __init__(self, scenario_name, control_type, port, output_root, no_gui, use_async_controller=True, experiment="default", redirect_detectors=False):
         self.scenario_name = scenario_name
         self.control_type = control_type
         self.port = port
         self.output_root = output_root
         self.no_gui = no_gui
         self.use_async_controller = use_async_controller
+        self.experiment = experiment
+        self.redirect_detectors = redirect_detectors
 
     def __call__(self):
         return run_single(
@@ -289,6 +366,8 @@ class _SimFactory:
             port=self.port,
             show_dashboard=True,
             use_async_controller=self.use_async_controller,
+            experiment=self.experiment,
+            redirect_detectors=self.redirect_detectors,
         )
 
 
@@ -309,7 +388,15 @@ def main() -> None:
     parser.add_argument("--batch", action="store_true", help="Run solver types in parallel")
     parser.add_argument("--workers", type=int, default=2, help="Number of parallel workers")
     parser.add_argument("--port", type=int, default=8813, help="Base TraCI port")
-    parser.add_argument("--output", default="runs", help="Root output directory")
+    parser.add_argument("--output", default=None, help="Override output root (uses legacy runs/<scenario>/<solver>_<hex>/ layout)")
+    parser.add_argument("--experiment", default="default", help="Named sub-folder under micro-sim-runs/ (default: 'default')")
+    parser.add_argument(
+        "--redirect-detectors",
+        dest="redirect_detectors",
+        action="store_true",
+        default=False,
+        help="Copy SUMO detector outputs from micronet/detectors/ into the run folder after simulation",
+    )
     parser.add_argument(
         "--no-async-controller",
         dest="use_async_controller",
@@ -338,6 +425,8 @@ def main() -> None:
             output_root=args.output,
             no_gui=args.no_gui,
             use_async_controller=args.use_async_controller,
+            experiment=args.experiment,
+            redirect_detectors=args.redirect_detectors,
         )
     else:
         run_single(
@@ -347,7 +436,9 @@ def main() -> None:
             output_root=args.output,
             port=args.port,
             use_async_controller=args.use_async_controller,
-            wait_for_input=args.wait_for_input
+            wait_for_input=args.wait_for_input,
+            experiment=args.experiment,
+            redirect_detectors=args.redirect_detectors,
         )
 
 

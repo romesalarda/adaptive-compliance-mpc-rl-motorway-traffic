@@ -157,6 +157,13 @@ def _serialize_demands(demands: np.ndarray, demands_meta: Optional[dict]) -> dic
     }
 
 
+# Public aliases — callable by microscopic statistics without accessing private names
+serialize_parameters = _serialize_parameters
+serialize_network = _serialize_network
+serialize_demands = _serialize_demands
+numpy_to_python = _numpy_to_python
+
+
 def _channel_summary(arr: Any) -> Optional[dict]:
     if arr is None:
         return None
