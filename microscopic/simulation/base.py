@@ -132,7 +132,7 @@ class SUMOBaseSimulation:
         Pretty-print the environment's configuration and state for debugging.
         Wait for user input to continue or quit.
         '''
-        self.controller.macro_env.parameters.pprint()
+        self.controller.macro_env.parameters.pprint(ignore=["_time"])
         self.controller.micro_env.pprint()
 
         ready = input("Press Enter to continue, or type 'q' to quit: ")

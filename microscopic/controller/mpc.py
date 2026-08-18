@@ -4,7 +4,7 @@ from typing import TYPE_CHECKING
 
 import numpy as np
 
-from microscopic.controller.base import BaseSUMOController
+from microscopic.controller.base import BaseSUMOController, MPCInitialiserMixin
 from macroscopic.simulation.environment import MacroEnvironment
 from microscopic.simulation.environment import MicroEnvironment
 from macroscopic.logger import LOGGER
@@ -13,7 +13,7 @@ if TYPE_CHECKING:
     from macroscopic.solvers.base import BaseMPCSolver
 
 
-class SynchronousMPCController(BaseSUMOController):
+class SynchronousMPCController(MPCInitialiserMixin, BaseSUMOController):
     """
     Closed-loop controller: feeds SUMO state into the macroscopic MPC solver
     and applies resulting speed limits and metering rates back to SUMO.
@@ -63,7 +63,7 @@ class SynchronousMPCController(BaseSUMOController):
 
         return controls
 
-    def _get_demands_forecast(self) -> np.ndarray:
+    def _get_demands_forecast(self, *args) -> np.ndarray:
         """Slice the macro demand array over the MPC horizon from the current step."""
         horizon = getattr(self.solver, "Np", 7) * getattr(self.solver, "M", 6)
 

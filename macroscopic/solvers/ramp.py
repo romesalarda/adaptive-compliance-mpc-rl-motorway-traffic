@@ -82,7 +82,7 @@ class MpcRMSimulation(BaseMPCSolver):
 
         r_first = np.clip(np.array(sol.vals["r"][:, 0]).flatten(), 0.0, 1.0)
 
-        LOGGER.warning("Values for single step solution RM %s", r_first)
+        LOGGER.warning("Values for single step solution RM %s", sol.vals["r"])
 
         self._r_last_value = cs.DM(r_first)
 

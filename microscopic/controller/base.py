@@ -44,7 +44,7 @@ class BaseSUMOController:
 
     def setup(self) -> None:
         """Called once before the simulation loop starts."""
-        raise NotImplementedError("setup() must be implemented by subclasses. %s does not." % self.__class__.__name__)
+        pass
 
     @abstractmethod
     def compute_action(self, state: dict) -> dict:
@@ -96,7 +96,9 @@ class BaseSUMOController:
 
 
 class MPCInitialiserMixin:
-
+    '''
+    Mixin for controllers that need to compute an initial solution before the simulation loop starts.
+    '''
     def setup(self) -> None:
 
         LOGGER.info("\nBeginning init solution")
@@ -128,4 +130,5 @@ class MPCInitialiserMixin:
 
         self._last_controls = controls
 
-        LOGGER.info("\Finsihed setup of init solution")
+        LOGGER.info("\nFinsihed setup of init solution")
+    
