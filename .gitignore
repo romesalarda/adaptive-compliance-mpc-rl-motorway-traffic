@@ -5,6 +5,7 @@ __pycache__/
 /runs
 run_set/
 macro-sim-runs/
+micro-sim-runs/
 .venv/
 .env
 venv/

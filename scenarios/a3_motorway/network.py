@@ -39,13 +39,9 @@ def build_network(parameters: BaseParameters, control_type: str, linkKlass: Link
 
     if linkKlass is None:
         if control_type in ("vsl", "coordinated"):
-            LOGGER.warning("No linkKlass provided, defaulting to CarlsonLinkWithVsl for VSL control.")
-
+            LOGGER.warning("No link_class in scenario config; defaulting to CarlsonLinkWithVsl for VSL control.")
             linkKlass = CarlsonLinkWithVsl
         else:
-
-            LOGGER.warning("No linkKlass provided, defaulting to FrejoLinkWithVsl for non-VSL control.")
-
             linkKlass = Link[cs.SX]
 
     if control_type in ("vsl", "coordinated"):

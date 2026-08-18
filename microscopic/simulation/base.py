@@ -132,10 +132,18 @@ class SUMOBaseSimulation:
         Pretty-print the environment's configuration and state for debugging.
         Wait for user input to continue or quit.
         '''
-        self.controller.macro_env.parameters.pprint(ignore=["_time"])
+        macro_env = self.controller.macro_env
+        macro_env.parameters.pprint(ignore=["_time"])
         self.controller.micro_env.pprint()
 
-        ready = input("Press Enter to continue, or type 'q' to quit: ")
+        link_class_name = getattr(macro_env, "link_class_name", None) or "Link (default)"
+        solver_config = getattr(macro_env, "solver_config", {})
+        print(f"\n  Link class : {link_class_name}")
+        if solver_config:
+            cfg_str = ", ".join(f"{k}={v}" for k, v in solver_config.items())
+            print(f"  Solver cfg : {cfg_str}")
+
+        ready = input("\nPress Enter to continue, or type 'q' to quit: ")
         if ready.lower() == "q":
             raise KeyboardInterrupt("User requested exit.")
         
