@@ -10,20 +10,24 @@
   },
   "control_parameters": {
     "vsl": {
-      "alpha_compliance": 0.5,
+      "alpha_compliance": 0.1,
       "A": 0.8,
       "E": 3.0,
       "V": 120,
       "v_ctrl": [120, 120, 120, 120],
       "segments_with_vsl": [0, 1, 2, 3],
       "minimum_speed_limit": 30,
-      "maximum_speed_limit": 120
+      "maximum_speed_limit": 120,
+
+      "objective_weights": {
+        "temporal_smoothness": 0.4
+      }
     },
     "coordinated": {
       "alpha_compliance": 0.5,
       "A": 0.4,
       "E": 1.5,
-      "V": 102,
+      "V": 112,
       "v_ctrl": [120, 120, 120, 120],
       "segments_with_vsl": [0, 1, 2, 3],
       "minimum_speed_limit": 30,
@@ -34,7 +38,7 @@
         "delta_v_max": 10,
         "delta_v_increase": 0,
         "max_temporal_change": 10,
-        "r_weight": 0.8,
+        "r_weight": 0.4,
         "seg4_safety": 1,
         "queue_threshold": 25,
         "seg_4_idx": 3

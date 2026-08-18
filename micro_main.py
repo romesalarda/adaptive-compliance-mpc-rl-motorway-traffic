@@ -51,8 +51,9 @@ def _build_solver(macro_env, control_type: str):
     elif control_type == "coordinated":
         solver = MpcCoordinatedSimulation(
             environment=macro_env, 
-            **common,
             Np=7, Nc=5, M=6,
+            function_compactness=2,
+            objective_weights=macro_env.objective_weights,
             initial_conditions={
                 macro_env.network.origins_by_name["O1"]: {"v_ctrl": float("inf")},
             }

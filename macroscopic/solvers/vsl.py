@@ -164,7 +164,6 @@ class MpcVSLSimulation(BaseMPCSolver):
 
     def solve_single_step(self, rho, v, w, demands_forecast, current_time=None):
     
-        F = self.get_function()
         self._v_ctrl_last_value = self.environment.parameters.v_ctrl if self._v_ctrl_last_value is None else self._v_ctrl_last_value
 
         d_hat = demands_forecast
