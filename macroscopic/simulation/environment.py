@@ -4,18 +4,21 @@ from sym_metanet import Network, engines, Network
 import uuid
 
 
-class Environment:
+class MacroEnvironment:
     '''
     Encapsulates the environment for the macroscopic simulation, including parameters, network, and demands.
     '''
     def __init__(self,
             parameters: BaseParameters,
             network: Network,
-            demands,         
+            demands, 
+            objective_weights: dict = None        
         ):
         self.parameters = parameters
         self.network = network
         self.demands = demands
+        self.objective_weights = objective_weights or {}
+        
         self.id = str(uuid.uuid4())  # Unique identifier for the environment instance
         self.is_ready = False  # Flag to indicate if the environment is ready for simulation
 

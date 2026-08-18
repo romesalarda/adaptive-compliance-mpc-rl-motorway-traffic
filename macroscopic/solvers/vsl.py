@@ -1,6 +1,6 @@
 from sym_metanet import MeteredOnRamp
 
-from macroscopic.simulation.environment import Environment
+from macroscopic.simulation.environment import MacroEnvironment
 from macroscopic.simulation.parameters import VslParameters
 from macroscopic.solvers.base import BaseMPCSolver
 
@@ -8,10 +8,11 @@ from macroscopic.solvers.base import BaseMPCSolver
 from typing import TypeVar
 
 import casadi as cs
+import numpy as np
 
 SymType = TypeVar("SymType", cs.SX, cs.MX)
 
-from macroscopic.simulation.environment import Environment
+from macroscopic.simulation.environment import MacroEnvironment
 from macroscopic.logger import LOGGER
 
 class MpcVSLSimulation(BaseMPCSolver):
@@ -20,10 +21,12 @@ class MpcVSLSimulation(BaseMPCSolver):
     Inherits from BaseMPCSolver and provides methods for simulating traffic flow dynamics over time with Variable Speed Limits (VSL).
     """
 
-    def __init__(self, environment: Environment, Np=None, Nc=None, M=None, **kwargs):
+    def __init__(self, environment: MacroEnvironment, Np=None, Nc=None, M=None, **kwargs):
         super().__init__(environment, Np, Nc, M, **kwargs)
         self._v_ctrl_last = None  # Initialize the last speed limit control variable
         self._v_ctrl = None  # Initialize the speed limit control variable
+
+        self._v_ctrl_last_value = None  # Store the last value of v_ctrl for use in the next iteration
 
     @property
     def v_ctrl_last(self):
@@ -50,7 +53,7 @@ class MpcVSLSimulation(BaseMPCSolver):
     def init_control_states(self):
 
         parameters: VslParameters = self.environment.parameters
-        
+
         self.v_ctrl, _ = self.MPC.action(
             "v_ctrl", len(parameters.segments_with_vsl),
             lb=parameters.minimum_speed_limit, 
@@ -58,15 +61,21 @@ class MpcVSLSimulation(BaseMPCSolver):
         ) 
 
         n_metered = sum(1 for o in self.environment.network.origins if isinstance(o, MeteredOnRamp))
-        self.r, _ = self.MPC.action("r", n_metered, lb=1, ub=1)
+        self.r, _ = self.MPC.action(
+            "r", 
+            n_metered, 
+            lb=self.use_weight_parameter("r_lower_bound", 1),
+            ub=self.use_weight_parameter("r_upper_bound", 1)
+        )
         
         self.v_ctrl_last = self.MPC.parameter("v_ctrl_last", (self.v_ctrl.size1(), 1))
 
     def init_constraints(self):
 
-        delta_v_max = 10  # Max drop allowed
-        delta_v_increase = 0  # Change to 0 to allow flat profiles
-        max_temporal_change = 10 # i.e. between time steps
+
+        delta_v_max = self.use_weight_parameter("delta_v_max", 10)  # Max drop allowed
+        delta_v_increase = self.use_weight_parameter("delta_v_increase", 0)  # Change to 0 to allow flat profiles
+        max_temporal_change = self.use_weight_parameter("max_temporal_change", 10) # i.e. between time steps
         mpc = self.MPC
         v_ctrl = self.v_ctrl
         v_ctrl_last = self.v_ctrl_last
@@ -100,10 +109,8 @@ class MpcVSLSimulation(BaseMPCSolver):
     def init_objective(self):
 
         parameters: VslParameters = self.environment.parameters
-        temporal_smoothness_weight = self.objective_weights.get("temporal_smoothness", 10)
+        temporal_smoothness_weight = self.use_weight_parameter("temporal_smoothness", 10)
         temporal_smoothness = temporal_smoothness_weight * cs.sumsqr(cs.diff(cs.horzcat(self.v_ctrl_last, self.v_ctrl), 1, 1) / parameters.v_free)
-
-        # TTT = sum of all segment densities + queue lengths, multiplied by T
 
         self.MPC.minimize(
             parameters.T * cs.sum2(cs.sum1(self.rho * parameters.L * parameters.lanes) + cs.sum1(self.w))
@@ -154,3 +161,40 @@ class MpcVSLSimulation(BaseMPCSolver):
 
             if k % 100 == 0:
                 LOGGER.info(f"step {k} of {self.environment.demands.shape[0]}")
+
+    def solve_single_step(self, rho, v, w, demands_forecast, current_time=None):
+    
+        F = self.get_function()
+        self._v_ctrl_last_value = self.environment.parameters.v_ctrl if self._v_ctrl_last_value is None else self._v_ctrl_last_value
+
+        d_hat = demands_forecast
+
+        rho_safe = cs.fmax(rho, 1e-3)
+        v_safe = cs.fmax(v, 1e-3)
+        w_safe = cs.fmax(w, 0)
+
+        rho_safe = np.squeeze(rho_safe.full())
+        v_safe   = np.squeeze(v_safe.full())
+        w_safe   = np.squeeze(w_safe.full())
+
+        sol = self.MPC.solve(
+            pars={
+                "rho_0": rho_safe,
+                "v_0": v_safe,
+                "w_0": w_safe,
+                "d": d_hat.T,
+                "v_ctrl_last": self._v_ctrl_last_value,
+            },
+        )
+        LOGGER.info(f"\nsolve_single_step: v_ctrl={sol.vals['v_ctrl']} for cycle at t={current_time}")
+
+        self._v_ctrl_last_value = sol.vals["v_ctrl"][:, 0]
+        r_first = sol.vals["r"][:, 0]
+
+        LOGGER.info(f"solve_single_step: v_ctrl={self._v_ctrl_last_value}, r={r_first} at t={current_time}")
+
+        # sol.vals state arrays are shape (n_seg/n_orig, horizon+1); col 0 = initial state
+        result: dict = {"v_ctrl": self._v_ctrl_last_value, "r": r_first[0]}
+
+        result.update(self.parse_predictions(sol.vals))
+        return result

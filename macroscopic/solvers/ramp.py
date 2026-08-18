@@ -14,6 +14,12 @@ class MpcRMSimulation(BaseMPCSolver):
     Inherits from BaseMPCSolver and provides methods for simulating traffic flow dynamics over time.
     """
 
+    def init_objective(self):
+        self.MPC.minimize(
+            self.environment.parameters.T * cs.sum2(cs.sum1(self.rho * self.environment.parameters.L * self.environment.parameters.lanes) + cs.sum1(self.w))
+            + self.use_weight_parameter("r_weight", 0.4) * cs.sumsqr(cs.diff(cs.horzcat(self.r_last, self.r)))
+        )
+
     def _simulate(self):
 
         sol_prev = None
@@ -51,3 +57,41 @@ class MpcRMSimulation(BaseMPCSolver):
             if k % 100 == 0:
                 LOGGER.info(f"step {k} of {self.environment.demands.shape[0]}")
 
+    def solve_single_step(self, rho, v, w, demands_forecast, current_time=None):
+
+        r_last = cs.DM.ones(self.r.size1(), 1) if self._r_last_value is None else self._r_last_value
+
+        d_hat = demands_forecast
+
+        rho_safe = cs.fmax(rho, 1e-3)
+        v_safe = cs.fmax(v, 1e-3)
+        w_safe = cs.fmax(w, 0)
+
+        rho_safe = np.squeeze(rho_safe.full())
+        v_safe   = np.squeeze(v_safe.full())
+        w_safe   = np.squeeze(w_safe.full())
+
+        try:
+            sol = self.MPC.solve(
+                pars={
+                    "rho_0": rho_safe,
+                    "v_0": v_safe,
+                    "w_0": w_safe,
+                    "d": d_hat.T,
+                    "r_last": r_last,
+                },
+            )
+        except Exception as exc:
+            LOGGER.warning("[RampSolver] MPC.solve failed (%s); falling back to r_last=%s", exc, r_last)
+            r_fallback = float(np.clip(np.array(r_last).flatten()[0], 0.0, 1.0))
+            return {"r": r_fallback}
+
+        r_first = np.clip(np.array(sol.vals["r"][:, 0]).flatten(), 0.0, 1.0)
+
+        LOGGER.warning("Values for single step solution RM %s", sol.vals["r"])
+
+        self._r_last_value = cs.DM(r_first)
+
+        result: dict = {"r": float(r_first[0])}
+        result.update(self.parse_predictions(sol.vals))
+        return result

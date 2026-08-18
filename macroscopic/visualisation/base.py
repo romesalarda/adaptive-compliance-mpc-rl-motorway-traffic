@@ -32,7 +32,7 @@ from matplotlib.figure import Figure
 
 from macroscopic.statistics.base import MacroOverviewSimulationResults, MacroSimulationResults
 from macroscopic.simulation.parameters import BaseParameters, VslParameters
-from macroscopic.simulation.environment import Environment
+from macroscopic.simulation.environment import MacroEnvironment
 
 logger = logging.getLogger(__name__)
 
@@ -239,7 +239,7 @@ class MacroscopicVisualiser:
         fig, axs = self._figure(4, 2, (14, 10), title or "MPC Coordinated Control - Ramp Metering + VSL")
         seg_colors, seg_names, orig_colors, orig_names = self._palette(results)
         vsl_colors = self._vsl_colors(results.v_ctrl.shape[1])
-        vsl_names = [f"VSL Seg {i + 3}" for i in range(results.v_ctrl.shape[1])]
+        vsl_names = [f"VSL Seg {i}" for i in range(results.v_ctrl.shape[1])]
 
         self._plot_series(axs[0, 0], params.time, results.v, seg_colors, seg_names,
                            "Speed [km/h]", "Speed Profile", ncol=2)

@@ -7,11 +7,13 @@ from sym_metanet import (
     Network,
     Node,
 )
-from macroscopic.vsl import CarlsonLinkWithVsl
+from macroscopic.vsl import CarlsonLinkWithVsl, FrejoLinkWithVsl
 from macroscopic.simulation.parameters import BaseParameters
 
+from macroscopic.logger import LOGGER
 
-def build_network(parameters: BaseParameters, control_type: str) -> Network:
+
+def build_network(parameters: BaseParameters, control_type: str, linkKlass: Link = None) -> Network:
     '''
     Topology:
         O1 -- L1 --> N2 -- L2 --> N3
@@ -35,18 +37,41 @@ def build_network(parameters: BaseParameters, control_type: str) -> Network:
         name="L1",
     )
 
+    if linkKlass is None:
+        if control_type in ("vsl", "coordinated"):
+            LOGGER.warning("No linkKlass provided, defaulting to CarlsonLinkWithVsl for VSL control.")
+
+            linkKlass = CarlsonLinkWithVsl
+        else:
+
+            LOGGER.warning("No linkKlass provided, defaulting to FrejoLinkWithVsl for non-VSL control.")
+
+            linkKlass = Link[cs.SX]
+
+    if not issubclass(linkKlass, Link):
+        raise TypeError(f"linkKlass must be a subclass of Link, got {linkKlass}")
+
     if control_type in ("vsl", "coordinated"):
         from macroscopic.simulation.parameters import VslParameters
         assert isinstance(parameters, VslParameters)
-        L1 = CarlsonLinkWithVsl(
-            **_common,
-            a=parameters.a,
-            segments_with_vsl=parameters.segments_with_vsl,
-            alpha=parameters.alpha_compliance,
-            V=parameters.V,
-            A=parameters.A,
-            E=parameters.E,
-        )
+
+        if linkKlass not in (CarlsonLinkWithVsl, FrejoLinkWithVsl):
+            L1 = linkKlass(
+                **_common,
+                a=parameters.a,
+                segments_with_vsl=parameters.segments_with_vsl,
+                alpha=parameters.alpha_compliance,
+            )
+        else:
+            L1 = linkKlass(
+                **_common,
+                a=parameters.a,
+                segments_with_vsl=parameters.segments_with_vsl,
+                alpha=parameters.alpha_compliance,
+                V=parameters.V,
+                A=parameters.A,
+                E=parameters.E,
+            )
     else:
         L1 = Link[cs.SX](
             **_common,

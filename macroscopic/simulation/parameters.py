@@ -31,7 +31,7 @@ class BaseParameters:
         "L": 1,  # segment length in km (changed from 1000 to match main.py)
         "lanes": 2,
         # "C": (3800, 1800), # MAX MAINLINE: 3700, MAX RAMP: 1800
-        "C": (3800, 1800), # veh/h, maximum flow capacity per lane for mainline and on-ramp
+        "C": (4000, 1800), # veh/h, maximum flow capacity per lane for mainline and on-ramp
         "tau": 18 / 3600, # 18/3600 # time constant in hours
         "kappa": 40, # veh/km/lane
         "eta": 60, # km^2/hour
@@ -428,9 +428,9 @@ class BaseParameters:
             ignore = set()
 
         for slot in self.__slots__:
-            if not slot.startswith('_') and slot not in ignore:
-                print(f"{slot}: {getattr(self, slot)}")
-        
+            if slot not in ignore:
+                print(f"{slot}: {getattr(self, slot, None)}")
+            
     @property
     def name(self) -> str:
         return self._param_name

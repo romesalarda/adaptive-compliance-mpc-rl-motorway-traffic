@@ -2,10 +2,13 @@ __pycache__/
 *.pyc
 /images
 /results
+/runs
 run_set/
+macro-sim-runs/
 .venv/
 .env
 venv/
+micronet/
 env/
 .DS_Store
 .idea/

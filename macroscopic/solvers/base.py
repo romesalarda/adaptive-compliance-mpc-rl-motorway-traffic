@@ -10,7 +10,7 @@ import numpy as np
 SymType = TypeVar("SymType", cs.SX, cs.MX)
 
 
-from macroscopic.simulation.environment import Environment
+from macroscopic.simulation.environment import MacroEnvironment
 from macroscopic.simulation.model import BaseSimulation
 from macroscopic.statistics.base import (
     MacroSimulationResults, 
@@ -41,7 +41,7 @@ class BaseMPCSolver(BaseSimulation):
     DEFAULT_SOLVER = "ipopt"
 
     def __init__(self, 
-            environment: Environment,
+            environment: MacroEnvironment,
             Np=None,
             Nc=None,
             M=None,
@@ -74,16 +74,14 @@ class BaseMPCSolver(BaseSimulation):
         self._w: cs.SX = None  # Placeholder for the congestion queue state, to be defined in subclasses
         self._r: cs.SX = None  # Placeholder for the ramp metering rate state, to be defined in subclasses
         self._r_last: cs.SX = None  # Placeholder for the last ramp metering rate state, to be defined in subclasses
+        self._r_last_value = None
 
         self.number_of_segments = sum(link.N for _, _, link in self.environment.network.links)
         self.number_of_origins = len(self.environment.network.origins)
 
         self.kwargs = kwargs  # Store any additional keyword arguments for future use
-        self.objective_weights = kwargs.get(
-            "objective_weights", {
-                "temporal_smoothness": 10
-            }
-        )
+        self.objective_weights = environment.objective_weights if hasattr(environment, 'objective_weights') else {}
+        
         self.queue_upper_bound = kwargs.get("queue_upper_bound", None)  # Upper bound for the congestion queue, can be adjusted as needed 
         self.function_compactness = kwargs.get("function_compactness", 1)  # Compactness level for the function representation, can be adjusted as needed
     
@@ -218,6 +216,21 @@ class BaseMPCSolver(BaseSimulation):
             raise ValueError("objective_weights must be a dictionary.")
         self._objective_weights = value
 
+    def use_weight_parameter(self, weight_name: str, default_value: float = 1.0):
+        """
+        Use a weight parameter for the objective function. If the weight is not specified in the objective_weights dictionary, it will be set to the default value.
+
+        Args:
+            weight_name (str): The name of the weight parameter.
+            default_value (float): The default value to use if the weight is not specified.
+
+        Returns:
+            float: The weight value to be used in the objective function.
+        """
+
+        self.objective_weights.setdefault(weight_name, default_value)
+        return self.objective_weights[weight_name]
+
     #### mpc methods
 
     def pre_init_mpc(self):
@@ -227,6 +240,9 @@ class BaseMPCSolver(BaseSimulation):
         # self.environment.ready(initial_conditions=self.kwargs.get("initial_conditions", {}))
         network = self.environment.network
         # Identify mainline origins (node has no entering links) and fix r=1
+        if not self.kwargs.get("initial_conditions", {}):
+            LOGGER.warning("No initial conditions provided. Using default mainline origins with r=1.")
+
         mainline_ic = {
             origin: {"r": 1}
             for origin, node in network.origins.items()
@@ -260,8 +276,8 @@ class BaseMPCSolver(BaseSimulation):
         '''
         Initialize the base states for the MPC solver.
         '''      
-        self.rho, _ = self.MPC.state("rho", self.number_of_segments, lb=0)
-        self.v, _ = self.MPC.state("v", self.number_of_segments, lb=0)
+        self.rho, _ = self.MPC.state("rho", self.number_of_segments, lb=1e-3)
+        self.v, _ = self.MPC.state("v", self.number_of_segments, lb=1e-3)
 
         if self.queue_upper_bound is not None:
             assert len(self.queue_upper_bound) == self.number_of_origins, "Queue upper bound must match the number of origins."
@@ -437,4 +453,73 @@ class BaseMPCSolver(BaseSimulation):
         rho, v, w = cs.vertsplit(x_next, (0, self.number_of_segments, 2 * self.number_of_segments, 2 * self.number_of_segments + self.number_of_origins))
         q, q_on = cs.vertsplit(q_all, (0, self.number_of_segments, self.number_of_segments + self.number_of_origins))
         return rho, v, w, q, q_on
-    
+
+    def solve_single_step(self, rho, v, w, demands_forecast, current_time=None):
+        '''
+        Solve the MPC problem for a single time step given the current states and forecasted demands.
+        This method is intended to be overridden by subclasses to implement specific logic for solving the MPC problem at each time step.
+
+        Args:
+            rho (cs.SX): Current traffic density state.
+            v (cs.SX): Current traffic speed state.
+            w (cs.SX): Current congestion queue state.
+            demands_forecast (np.ndarray): Forecasted demands over the prediction horizon.
+            current_time (int, optional): Current time step index. Defaults to None.
+
+        Returns:
+            tuple: Optimal ramp metering rates and other control variables for the current time step.
+        '''
+        raise NotImplementedError("The '_solve_single_step' method must be implemented in subclasses of BaseMPCSolver.")
+
+    def save_single_step_solution(self, solution, current_time, prediction_times):
+        '''
+        Save the solution of the MPC problem for a single time step. This method stores the optimal ramp metering rates and other control variables obtained from solving the MPC problem.
+
+        Args:
+            solution (dict): Solution obtained from the MPC solver.
+            current_time (int): Current time step index.
+            prediction_times (Any): List of time steps over the prediction horizon.
+        '''
+        raise NotImplementedError("The '_save_single_step_solution' method must be implemented in subclasses of BaseMPCSolver.")
+
+    def parse_predictions(self, solution: dict) -> dict:
+        '''
+        Parse the predictions from the solution obtained from the MPC solver. This method extracts the predicted traffic density, speed, and congestion queue states over the prediction horizon.
+
+        Args:
+            solution (dict): Solution obtained from the MPC solver.
+        Returns:
+            dict: Parsed predictions containing traffic density, speed, and congestion queue states.s
+        '''
+        results = {}
+        try:
+            rho_pred = np.array(solution["rho"])[:, 1:].T   # (horizon, n_seg)
+            v_pred   = np.array(solution["v"])[:, 1:].T
+            w_pred   = np.array(solution["w"])[:, 1:].T
+            results["rho_pred"] = rho_pred
+            results["v_pred"]   = v_pred
+            results["w_pred"]   = w_pred
+        except (KeyError, Exception):
+            LOGGER.error("Failed to parse predictions from the solution. Ensure that the solution contains 'rho', 'v', and 'w' keys with appropriate values.")
+        return results
+
+    def reset(self):
+        '''
+        Reset the solver to its initial state. This method clears any stored simulation results and resets the internal states of the solver, allowing for a fresh start for a new simulation run.
+        '''
+        self._rho = None
+        self._v = None
+        self._w = None
+        self._r = None
+        self._r_last = None
+        self._MPC = None
+        self._Np = None
+        self._Nc = None
+        self._M = None
+
+class DummyMPCSolver(BaseMPCSolver):
+
+    def solve_single_step(self, rho, v, w, demands_forecast, current_time=None):
+        return {
+            "r": 1,
+        }

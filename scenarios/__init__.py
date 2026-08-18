@@ -8,11 +8,12 @@ from typing import TYPE_CHECKING
 
 import numpy as np
 
-from macroscopic.simulation.environment import Environment
+from macroscopic.simulation.environment import MacroEnvironment
 from macroscopic.simulation.parameters import BaseParameters, VslParameters
 
 if TYPE_CHECKING:
     from sym_metanet import Network
+    from microscopic.simulation.environment import MicroEnvironment
 
 _SCENARIOS_DIR = Path(__file__).parent
 
@@ -47,7 +48,30 @@ class Scenario:
     # Public API
     # ------------------------------------------------------------------
 
-    def build_environment(self, control_type: str) -> Environment:
+    @property
+    def micro_config(self) -> dict:
+        """Raw micro block from scenario.json; raises if missing."""
+        cfg = self._config.get("micro")
+        if cfg is None:
+            raise KeyError(f"Scenario '{self.name}' has no 'micro' block in scenario.json")
+        return cfg
+
+    def build_micro_environment(self) -> "MicroEnvironment":
+        """Instantiate a MicroEnvironment from the scenario's 'micro' block."""
+        from microscopic.simulation.environment import MicroEnvironment
+
+        cfg = self.micro_config
+        return MicroEnvironment(
+            edge_to_segment_map={k: int(v) for k, v in cfg["edge_to_segment_map"].items()},
+            origin_w_map={k: int(v) for k, v in cfg["origin_w_map"].items()},
+            n_segments=int(cfg["n_segments"]),
+            n_origins=int(cfg["n_origins"]),
+            step_length=float(cfg["step_length"]),
+            vsl_edge_ids=list(cfg.get("vsl_edge_ids", [])),
+            ramp_tl_map=dict(cfg.get("ramp_tl_map", {})),
+        )
+
+    def build_environment(self, control_type: str, **kwargs) -> MacroEnvironment:
         """Merge parameters, instantiate the right Parameters class, build network and demands."""
         if control_type not in _PARAMS_REGISTRY:
             raise ValueError(
@@ -58,14 +82,21 @@ class Scenario:
         params_cls = _PARAMS_REGISTRY[control_type]
         params_dict = dict(self._config.get("parameters", {}))
         overrides = self._config.get("control_parameters", {}).get(control_type, {})
+        objective_weights = overrides.pop("objective_weights", {})
+
         params_dict.update(overrides)
 
         parameters = params_cls(**params_dict)
 
-        network = self._build_network(parameters, control_type)
+        network = self._build_network(parameters, control_type, **kwargs)
         demands = self._build_demands(parameters.time)
 
-        return Environment(parameters=parameters, network=network, demands=demands)
+        return MacroEnvironment(
+            parameters=parameters, 
+            network=network, 
+            demands=demands,
+            objective_weights=objective_weights
+            )
 
     @property
     def demands_meta(self) -> dict:
@@ -84,14 +115,14 @@ class Scenario:
     # Internal helpers
     # ------------------------------------------------------------------
 
-    def _build_network(self, parameters: BaseParameters, control_type: str) -> "Network":
+    def _build_network(self, parameters: BaseParameters, control_type: str, **kwargs) -> "Network":
         network_path = self.path / "network.py"
         spec = importlib.util.spec_from_file_location(
             f"scenarios.{self.name}.network", network_path
         )
         module = importlib.util.module_from_spec(spec)
         spec.loader.exec_module(module)
-        return module.build_network(parameters, control_type)
+        return module.build_network(parameters, control_type, **kwargs)
 
     def _build_demands(self, time: np.ndarray) -> np.ndarray:
         cfg = self._config["demands"]
