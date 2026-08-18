@@ -65,9 +65,12 @@ class SynchronousMPCController(MPCInitialiserMixin, BaseSUMOController):
 
     def _get_demands_forecast(self, *args) -> np.ndarray:
         """Slice the macro demand array over the MPC horizon from the current step."""
+        # convert micro step → macro row (T_macro / step_length micro steps per macro step)
+        T_macro_s = self.macro_env.parameters.T * 3600
+        macro_step = int(self._current_step * self.micro_env.step_length / T_macro_s)
         horizon = getattr(self.solver, "Np", 7) * getattr(self.solver, "M", 6)
 
-        d_hat = self.macro_env.demands[self._current_step : self._current_step + horizon, :]
+        d_hat = self.macro_env.demands[macro_step : macro_step + horizon, :]
         if d_hat.shape[0] < horizon:
             pad_width = horizon - d_hat.shape[0]
             if d_hat.shape[0] == 0:

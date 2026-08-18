@@ -42,7 +42,7 @@
     },
     "rm": {
       "objective_weights": {
-        "r_weight": 0.8,
+        "r_weight": 0.4,
         "seg4_safety": 1,
         "queue_threshold": 25,
         "seg_4_idx": 3

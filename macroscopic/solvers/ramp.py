@@ -14,6 +14,12 @@ class MpcRMSimulation(BaseMPCSolver):
     Inherits from BaseMPCSolver and provides methods for simulating traffic flow dynamics over time.
     """
 
+    def init_objective(self):
+        self.MPC.minimize(
+            self.environment.parameters.T * cs.sum2(cs.sum1(self.rho * self.environment.parameters.L * self.environment.parameters.lanes) + cs.sum1(self.w))
+            + self.use_weight_parameter("r_weight", 0.4) * cs.sumsqr(cs.diff(cs.horzcat(self.r_last, self.r)))
+        )
+
     def _simulate(self):
 
         sol_prev = None

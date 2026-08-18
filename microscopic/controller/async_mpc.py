@@ -164,8 +164,11 @@ class AsyncMPCController(MPCInitialiserMixin, BaseSUMOController):
 
     def _get_demands_forecast(self, step: int) -> np.ndarray:
         """Slice macro demands over the MPC horizon, starting at *step*."""
+        # convert micro step → macro row (T_macro / step_length micro steps per macro step)
+        T_macro_s = self.macro_env.parameters.T * 3600
+        macro_step = int(step * self.step_length / T_macro_s)
         horizon = getattr(self.solver, "Np", 7) * getattr(self.solver, "M", 6)
-        d_hat = self.macro_env.demands[step: step + horizon, :]
+        d_hat = self.macro_env.demands[macro_step: macro_step + horizon, :]
         if d_hat.shape[0] < horizon:
             pad = horizon - d_hat.shape[0]
             mode = "constant" if d_hat.shape[0] == 0 else "edge"
