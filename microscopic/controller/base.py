@@ -13,6 +13,8 @@ from microscopic.simulation.environment import MicroEnvironment
 if TYPE_CHECKING:
     pass
 
+from macroscopic.logger import LOGGER
+
 
 class BaseSUMOController:
     """
@@ -39,6 +41,10 @@ class BaseSUMOController:
 
     def should_solve(self, step: int) -> bool:
         return step % self.solve_interval_steps == 0
+
+    def setup(self) -> None:
+        """Called once before the simulation loop starts."""
+        raise NotImplementedError("setup() must be implemented by subclasses. %s does not." % self.__class__.__name__)
 
     @abstractmethod
     def compute_action(self, state: dict) -> dict:
@@ -88,4 +94,38 @@ class BaseSUMOController:
     def stop(self, timeout: float = 5.0) -> None:
         """No-op for synchronous controllers; overridden by AsyncMPCController."""
 
-    
+
+class MPCInitialiserMixin:
+
+    def setup(self) -> None:
+
+        LOGGER.info("\nBeginning init solution")
+        start_time = time.perf_counter()
+
+        solution = self.solver.solve_single_step(
+            rho=self.macro_env.parameters.rho_init,
+            v=self.macro_env.parameters.v_free_init,
+            w=self.macro_env.parameters.w_init,
+            demands_forecast=self._get_demands_forecast(0),
+            current_time=0,
+        )
+
+        end_time = time.perf_counter()
+
+        controls: dict = {"solve_time": end_time - start_time}
+
+        if "v_ctrl" in solution:
+            v_ctrl = np.atleast_1d(solution["v_ctrl"])
+            controls["v_ctrl"] = np.round(v_ctrl / 10) * 10
+        if "r" in solution:
+            controls["r"] = np.atleast_1d(solution["r"])
+        # Pass predicted state trajectories for recording and visualisation
+        for key in ("rho_pred", "v_pred", "w_pred"):
+            if key in solution:
+                controls[key] = solution[key]
+
+        self.apply_controls(controls, self.micro_env)
+
+        self._last_controls = controls
+
+        LOGGER.info("\Finsihed setup of init solution")

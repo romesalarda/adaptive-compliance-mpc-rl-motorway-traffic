@@ -193,10 +193,6 @@ class MpcVSLSimulation(BaseMPCSolver):
 
         LOGGER.info(f"solve_single_step: v_ctrl={self._v_ctrl_last_value}, r={r_first} at t={current_time}")
 
-        rho, v, w, q, q_on = self.get_next_states(rho, v, w, self._v_ctrl_last_value, r_first, current_time, F=F)
-
-        self.store_step(rho, v, w, q, q_on, v_ctrl_last=self._v_ctrl_last_value, omit_if_none=True)
-
         # sol.vals state arrays are shape (n_seg/n_orig, horizon+1); col 0 = initial state
         result: dict = {"v_ctrl": self._v_ctrl_last_value, "r": r_first[0]}
 

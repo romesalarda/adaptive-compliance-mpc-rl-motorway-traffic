@@ -160,6 +160,8 @@ def run_single(
         runtime_s=wall_time,
     )
 
+    # TODO: fix negative predictions
+
     # parse SUMO output files
     sumo_data = {
         "tripinfo": parse_tripinfo(out_dir / "tripinfo.xml"),

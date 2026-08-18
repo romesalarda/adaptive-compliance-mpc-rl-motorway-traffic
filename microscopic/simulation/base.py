@@ -99,6 +99,8 @@ class SUMOBaseSimulation:
         self.env.setup()
         self.env.check()
 
+        self.controller.setup()
+
     def check(self) -> None:
         if "SUMO_HOME" not in os.environ:
             raise EnvironmentError("SUMO_HOME environment variable is not set.")

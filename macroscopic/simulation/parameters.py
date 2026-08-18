@@ -26,12 +26,12 @@ class BaseParameters:
     
     # defintions from: https://web.dcsc.tudelft.nl/~bdeschutter/research/phd_theses/phd_hegyi_2004.pdf
     DEFAULTS = {
-        "T": 0.1 / 3600, # time step size of the freeway simulation, typical value is 10 seconds
+        "T": 10 / 3600, # time step size of the freeway simulation, typical value is 10 seconds
         "Tfin": 2.5, # changed down from 2.5 to 1
         "L": 1,  # segment length in km (changed from 1000 to match main.py)
         "lanes": 2,
         # "C": (3800, 1800), # MAX MAINLINE: 3700, MAX RAMP: 1800
-        "C": (3800, 1800), # veh/h, maximum flow capacity per lane for mainline and on-ramp
+        "C": (4000, 1800), # veh/h, maximum flow capacity per lane for mainline and on-ramp
         "tau": 18 / 3600, # 18/3600 # time constant in hours
         "kappa": 40, # veh/km/lane
         "eta": 60, # km^2/hour

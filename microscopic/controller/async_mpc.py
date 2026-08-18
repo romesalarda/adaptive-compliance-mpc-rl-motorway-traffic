@@ -9,7 +9,7 @@ import numpy as np
 
 from macroscopic.logger import LOGGER
 from macroscopic.simulation.environment import MacroEnvironment
-from microscopic.controller.base import BaseSUMOController
+from microscopic.controller.base import BaseSUMOController, MPCInitialiserMixin
 from microscopic.simulation.environment import MicroEnvironment
 from microscopic.statistics.async_stats import AsyncMPCSolveRecord, AsyncMPCStats
 
@@ -17,7 +17,7 @@ if TYPE_CHECKING:
     from macroscopic.solvers.base import BaseMPCSolver
 
 
-class AsyncMPCController(BaseSUMOController):
+class AsyncMPCController(MPCInitialiserMixin, BaseSUMOController):
     """
     Non-blocking MPC controller: SUMO never waits for the solver.
 

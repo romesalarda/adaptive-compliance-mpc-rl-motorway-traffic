@@ -53,7 +53,6 @@ class MpcRMSimulation(BaseMPCSolver):
 
     def solve_single_step(self, rho, v, w, demands_forecast, current_time=None):
 
-        F = self.get_function()
         r_last = cs.DM.ones(self.r.size1(), 1) if self._r_last_value is None else self._r_last_value
 
         d_hat = demands_forecast
@@ -66,27 +65,27 @@ class MpcRMSimulation(BaseMPCSolver):
         v_safe   = np.squeeze(v_safe.full())
         w_safe   = np.squeeze(w_safe.full())
 
-        sol = self.MPC.solve(
-            pars={
-                "rho_0": rho_safe,
-                "v_0": v_safe,
-                "w_0": w_safe,
-                "d": d_hat.T,
-                "r_last": r_last,
-            },
-        )
-        # sol_prev = sol.vals
-        r_first = sol.vals["r"][:, 0]
-        if r_first[0] < 0:
-            r_first = [0]
+        try:
+            sol = self.MPC.solve(
+                pars={
+                    "rho_0": rho_safe,
+                    "v_0": v_safe,
+                    "w_0": w_safe,
+                    "d": d_hat.T,
+                    "r_last": r_last,
+                },
+            )
+        except Exception as exc:
+            LOGGER.warning("[RampSolver] MPC.solve failed (%s); falling back to r_last=%s", exc, r_last)
+            r_fallback = float(np.clip(np.array(r_last).flatten()[0], 0.0, 1.0))
+            return {"r": r_fallback}
 
-        self._r_last_value = r_first
+        r_first = np.clip(np.array(sol.vals["r"][:, 0]).flatten(), 0.0, 1.0)
 
-        rho, v, w, q, q_on = self.get_next_states(rho, v, w, r_first, current_time, F=F)
+        LOGGER.warning("Values for single step solution RM %s", r_first)
 
-        self.store_step(rho, v, w, q, q_on, r_last=r_last)
+        self._r_last_value = cs.DM(r_first)
 
-        # sol.vals state arrays are shape (n_seg/n_orig, horizon+1); col 0 = initial state
-        result: dict = {"r": r_first[0]}
+        result: dict = {"r": float(r_first[0])}
         result.update(self.parse_predictions(sol.vals))
         return result

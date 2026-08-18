@@ -276,8 +276,8 @@ class BaseMPCSolver(BaseSimulation):
         '''
         Initialize the base states for the MPC solver.
         '''      
-        self.rho, _ = self.MPC.state("rho", self.number_of_segments, lb=0)
-        self.v, _ = self.MPC.state("v", self.number_of_segments, lb=0)
+        self.rho, _ = self.MPC.state("rho", self.number_of_segments, lb=1e-3)
+        self.v, _ = self.MPC.state("v", self.number_of_segments, lb=1e-3)
 
         if self.queue_upper_bound is not None:
             assert len(self.queue_upper_bound) == self.number_of_origins, "Queue upper bound must match the number of origins."
