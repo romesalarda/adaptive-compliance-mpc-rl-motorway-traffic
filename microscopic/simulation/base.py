@@ -6,6 +6,7 @@ import os
 from dataclasses import dataclass, field
 from pathlib import Path
 from typing import TYPE_CHECKING, Callable, Optional
+from macroscopic.logger import LOGGER
 
 import traci
 
@@ -160,6 +161,9 @@ class SUMOBaseSimulation:
         Pretty-print the environment's configuration and state for debugging.
         Wait for user input to continue or quit.
         '''
+        LOGGER.info("%s" % ("-" * 80))
+        LOGGER.info("\n[SIM] Manual input check at step %d, time %.2f s", self._step, self.simulation_time)
+    
         macro_env = self.controller.macro_env
         macro_env.parameters.pprint(ignore=["_time"])
         self.controller.micro_env.pprint()

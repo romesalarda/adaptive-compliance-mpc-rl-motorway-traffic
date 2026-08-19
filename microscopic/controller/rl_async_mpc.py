@@ -15,6 +15,7 @@ from microscopic.agents.state_features import StateDiscretiser
 from microscopic.agents.reward_components import WeightedRewardCalculator, reward_from_config
 from microscopic.statistics.rl_stats import RLEpisodeStats, RLStepRecord
 
+
 if TYPE_CHECKING:
     from macroscopic.simulation.environment import MacroEnvironment
     from microscopic.simulation.environment import MicroEnvironment
@@ -133,6 +134,9 @@ class RLAsyncMPCController:
 
 def _setup_rl(self) -> None:
     """Build the solver pool. Must be called once before the SUMO loop starts."""
+    logger.info("[RL] Setting up RL controller with %d alpha values ...", len(self._rl_alpha_values))
+    logger.info("\n[RL] Building solver pool with rebuild strategy: %s", self._rl_config.get("solver_pool", {}).get("rebuild_strategy", "pool"))
+
     self.build_solver_pool(self._rl_alpha_values, self._rl_solver_factory)
     if self._rl_q_table_path is not None:
         self._rl_agent.load_q_table(self._rl_q_table_path)
@@ -140,7 +144,7 @@ def _setup_rl(self) -> None:
         self._rl_agent.epsilon = 0.0
         logger.info("[RL] Evaluation mode: epsilon fixed at 0.")
     logger.info(
-        "[RL] setup_rl() complete — %d alpha values, learning=%s",
+        "\n[RL]setup_rl() complete — %d alpha values, learning=%s",
         len(self._rl_alpha_values), self._rl_learning,
     )
 
@@ -174,7 +178,7 @@ def _rl_on_step(self, step: int, env: "MicroEnvironment", state: dict) -> None:
         step: int, current micro step
         env: MicroEnvironment, the micro environment
         state: dict, the current state dictionary from the micro environment
-        
+
     '''
     sim_time = step * self.step_length
 

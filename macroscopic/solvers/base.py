@@ -1,4 +1,5 @@
 import time
+import uuid
 from sym_metanet import MeteredOnRamp
 
 from typing import TypeVar
@@ -84,6 +85,7 @@ class BaseMPCSolver(BaseSimulation):
         
         self.queue_upper_bound = kwargs.get("queue_upper_bound", None)  # Upper bound for the congestion queue, can be adjusted as needed 
         self.function_compactness = kwargs.get("function_compactness", 1)  # Compactness level for the function representation, can be adjusted as needed
+        self.solver_id = self.__class__.__name__  + "-" + str(uuid.uuid4())  # Unique identifier for the solver instance
     
     @property
     def Np(self):
@@ -335,48 +337,55 @@ class BaseMPCSolver(BaseSimulation):
         self.MPC.init_solver(solver=solver, opts=opts)
 
 
-    def setup(self, suppress=False):
+    def setup(self, suppress=False, show_logs=True, simple_ack=True):
         """
         Setup the macroscopic solver by initializing the MPC solver and other necessary components.
         """
-        LOGGER.info("Setting up the macroscopic solver...")
+        def log_message(message: str):
+            if show_logs:
+                LOGGER.info(message)
+           
+        log_message("Setting up the macroscopic solver...")
         try:
-            LOGGER.info("Starting the setup process for the macroscopic solver...")
+            log_message("Starting the setup process for the macroscopic solver...")
             self.pre_init_mpc()
-            LOGGER.info("\n1. Pre-initialization of the macroscopic solver completed successfully. ✓")
-            LOGGER.info("Proceeding with the initialization of the MPC solver and related components...")
+            log_message("\n1. Pre-initialization of the macroscopic solver completed successfully. ✓")
+            log_message("Proceeding with the initialization of the MPC solver and related components...")
             self.init_mpc()
-            LOGGER.info("MPC solver initialization completed successfully. ✓")
-            LOGGER.info("\n2. Proceeding with the initialization of base states, control states, constraints, disturbances, objective function, non-linear dynamics, and solver...")
+            log_message("MPC solver initialization completed successfully. ✓")
+            log_message("\n2. Proceeding with the initialization of base states, control states, constraints, disturbances, objective function, non-linear dynamics, and solver...")
             self.init_base_states()
-            LOGGER.info("Base states initialization completed successfully. ✓")
-            LOGGER.info("\n3. Proceeding with the initialization of control states...")
+            log_message("Base states initialization completed successfully. ✓")
+            log_message("\n3. Proceeding with the initialization of control states...")
             self.init_control_states()
-            LOGGER.info("Control states initialization completed successfully. ✓")
-            LOGGER.info("\n4. Proceeding with the initialization of constraints...")
+            log_message("Control states initialization completed successfully. ✓")
+            log_message("\n4. Proceeding with the initialization of constraints...")
             self.init_constraints()
-            LOGGER.info("Constraints initialization completed successfully. ✓")
-            LOGGER.info("\n5. Proceeding with the initialization of disturbances...")
+            log_message("Constraints initialization completed successfully. ✓")
+            log_message("\n5. Proceeding with the initialization of disturbances...")
             self.init_disturbances()
-            LOGGER.info("Disturbances initialization completed successfully. ✓")
-            LOGGER.info("\n6. Proceeding with the initialization of the objective function...")
+            log_message("Disturbances initialization completed successfully. ✓")
+            log_message("\n6. Proceeding with the initialization of the objective function...")
             self.init_objective()
-            LOGGER.info("Objective function initialization completed successfully. ✓")
-            LOGGER.info("\n7. Proceeding with the initialization of non-linear dynamics...")
+            log_message("Objective function initialization completed successfully. ✓")
+            log_message("\n7. Proceeding with the initialization of non-linear dynamics...")
             self.init_non_linear_dynamics()
-            LOGGER.info("Non-linear dynamics initialization completed successfully. ✓")
-            LOGGER.info("\n8. Proceeding with the initialization of the solver...")
+            log_message("Non-linear dynamics initialization completed successfully. ✓")
+            log_message("\n8. Proceeding with the initialization of the solver...")
             self.init_solver()
-            LOGGER.info("Solver initialization completed successfully. ✓")
-            LOGGER.info("All components of the macroscopic solver have been initialized successfully. ✓")
+            log_message("Solver initialization completed successfully. ✓")
+            log_message("All components of the macroscopic solver have been initialized successfully. ✓")
             self.post_init_mpc()
-            LOGGER.info("Post-initialization of the macroscopic solver completed successfully. ✓")
+            log_message("Post-initialization of the macroscopic solver completed successfully. ✓")
         except Exception as e:
-            LOGGER.error(f"Solver Setup Failed: An error occurred during the setup of the macroscopic solver: {e}")
+            log_message(f"Solver Setup Failed: An error occurred during the setup of the macroscopic solver: {e}")
             if not suppress:
                 raise e
             return False
-        LOGGER.info("Macroscopic solver setup complete.")
+        
+        if simple_ack:
+            LOGGER.info(f"Macroscopic solver setup completed successfully. ✓ Solver ID: {self.solver_id}")
+
         return True
     
     def check(self):

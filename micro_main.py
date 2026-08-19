@@ -32,6 +32,8 @@ from typing import TYPE_CHECKING
 
 if TYPE_CHECKING:
     from microscopic.statistics.base import MicroSimulationResults
+    from macroscopic.solvers.base import BaseMPCSolver
+    from scenarios import Scenario
 
 # ---- run directory helpers -------------------------------------------------
 
@@ -41,7 +43,18 @@ def _resolve_run_dir(
     experiment: str = "default",
     output_root: str | None = None,
 ) -> tuple[Path, str]:
-    """Return (out_dir, run_id). Uses scenario-relative path unless output_root overrides."""
+    """
+    Return (out_dir, run_id). Uses scenario-relative path unless output_root overrides.
+    
+    Args:
+        scenario_name: str, name of the scenario folder
+        control_type: str, solver type (rm, vsl, coordinated, base)
+        experiment: str, sub-folder under micro-sim-runs/ for grouping runs
+        output_root: str or None, if provided overrides the default run path
+
+    Returns:
+        tuple[Path, str]: (output directory, run ID)
+    """
     if output_root is not None:
         run_id = uuid.uuid4().hex[:8]
         return Path(output_root) / scenario_name / f"{control_type}_{run_id}", run_id
@@ -62,7 +75,16 @@ def _resolve_run_dir(
 
 
 def _copy_detectors(scenario_name: str, out_dir: Path) -> None:
-    """Copy SUMO detector outputs from micronet/detectors/ into the run folder."""
+    """
+    Copy SUMO detector outputs from micronet/detectors/ into the run folder.
+    
+    Args:
+        scenario_name: str, name of the scenario folder
+        out_dir: Path, the output directory for the current run
+    Returns:
+        None
+    
+    """
     src = Path("scenarios") / scenario_name / "micronet" / "detectors"
     if not src.exists():
         return
@@ -75,7 +97,15 @@ def _copy_detectors(scenario_name: str, out_dir: Path) -> None:
 # ---- solver registry -------------------------------------------------------
 
 def _build_solver(macro_env, control_type: str):
-    """Instantiate and setup the macro solver for the given control type."""
+    """
+    Instantiate and setup the macro solver for the given control type.
+    
+    Args:
+        macro_env: MacroEnvironment, the macroscopic environment
+        control_type: str, one of "rm", "vsl", "coordinated", "base"
+    Returns:
+        BaseMPCSolver, the fully setup solver instance
+    """
     from macroscopic.solvers import MpcRMSimulation, MpcVSLSimulation, MpcCoordinatedSimulation, DummyMPCSolver
 
     sc = macro_env.solver_config
@@ -86,7 +116,6 @@ def _build_solver(macro_env, control_type: str):
         function_compactness=sc.get("function_compactness", 2),
         objective_weights=macro_env.objective_weights,
     )
-    # TODO: fix initial conditions
     if control_type == "rm":
         solver = MpcRMSimulation(environment=macro_env, **common)
     elif control_type == "vsl":
@@ -116,7 +145,18 @@ def _build_solver(macro_env, control_type: str):
 
 
 def _build_solver_with_alpha(scenario: "Scenario", control_type: str, alpha: float) -> "BaseMPCSolver":
-    """Build one fully-setup solver with alpha_compliance overridden; used by the solver pool factory."""
+    """
+    Build one fully-setup solver with alpha_compliance overridden; used by the solver pool factory.
+    
+    Args:
+        scenario: Scenario, the scenario object
+        control_type: str, one of "rm", "vsl", "coordinated", "base"
+        alpha: float, the alpha_compliance value to set for this solver
+
+    Returns:
+        BaseMPCSolver, the fully setup solver instance with alpha_compliance set
+    
+    """
     from macroscopic.solvers import MpcCoordinatedSimulation
 
     macro_env = scenario.build_environment_with_alpha(control_type, alpha)
@@ -138,7 +178,7 @@ def _build_solver_with_alpha(scenario: "Scenario", control_type: str, alpha: flo
         )
     else:
         raise ValueError(f"RL solver pool only supports 'coordinated'; got '{control_type}'.")
-    solver.setup()
+    solver.setup(show_logs=False)
     return solver
 
 
