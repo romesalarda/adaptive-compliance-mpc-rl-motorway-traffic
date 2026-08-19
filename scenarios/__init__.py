@@ -132,6 +132,63 @@ class Scenario:
         """Raw demands config for use with RunSet.new_run(demands_meta=...)."""
         return self._config["demands"]
 
+    def get_rl_config(self, config_name: str = "default") -> dict:
+        """Return the named RL config block from scenario.json's 'rl.configs' section."""
+        rl_block = self._config.get("rl")
+        if rl_block is None:
+            raise KeyError(
+                f"Scenario '{self.name}' has no 'rl' block in scenario.json. "
+                "Add an 'rl.configs.<name>' block to use RL control."
+            )
+        configs = rl_block.get("configs", {})
+        if config_name not in configs:
+            available = list(configs)
+            raise KeyError(
+                f"RL config '{config_name}' not found in scenario '{self.name}'. "
+                f"Available configs: {available}"
+            )
+        return configs[config_name]
+
+    def build_environment_with_alpha(
+        self, control_type: str, alpha: float
+    ) -> MacroEnvironment:
+        """
+        Build a MacroEnvironment with alpha_compliance overridden to the given value.
+        Used by the solver pool factory to produce one compiled solver per alpha.
+        """
+        if control_type not in _PARAMS_REGISTRY:
+            raise ValueError(f"Unknown control type '{control_type}'.")
+
+        params_cls = _PARAMS_REGISTRY[control_type]
+        params_dict = dict(self._config.get("parameters", {}))
+        overrides = dict(self._config.get("control_parameters", {}).get(control_type, {}))
+
+        objective_weights = overrides.pop("objective_weights", {})
+        solver_config = overrides.pop("solver_config", {})
+        link_class_name: str | None = overrides.pop("link_class", None)
+
+        # Override alpha only; all other parameters come from the scenario config
+        params_dict.update(overrides)
+        params_dict["alpha_compliance"] = alpha
+        parameters = params_cls(**params_dict)
+
+        link_class = None
+        if link_class_name is not None:
+            registry = _get_link_class_registry()
+            link_class = registry[link_class_name]
+
+        network = self._build_network(parameters, control_type, link_class=link_class)
+        demands = self._build_demands(parameters.time)
+
+        return MacroEnvironment(
+            parameters=parameters,
+            network=network,
+            demands=demands,
+            objective_weights=objective_weights,
+            solver_config=solver_config,
+            link_class_name=link_class_name,
+        )
+
     @staticmethod
     def list_scenarios() -> list[str]:
         return [

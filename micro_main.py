@@ -115,6 +115,33 @@ def _build_solver(macro_env, control_type: str):
     return solver
 
 
+def _build_solver_with_alpha(scenario: "Scenario", control_type: str, alpha: float) -> "BaseMPCSolver":
+    """Build one fully-setup solver with alpha_compliance overridden; used by the solver pool factory."""
+    from macroscopic.solvers import MpcCoordinatedSimulation
+
+    macro_env = scenario.build_environment_with_alpha(control_type, alpha)
+    sc = macro_env.solver_config
+    common = dict(
+        Np=sc.get("Np", 7),
+        Nc=sc.get("Nc", 3),
+        M=sc.get("M", 6),
+        function_compactness=sc.get("function_compactness", 2),
+        objective_weights=macro_env.objective_weights,
+    )
+    if control_type == "coordinated":
+        solver = MpcCoordinatedSimulation(
+            environment=macro_env,
+            **common,
+            initial_conditions={
+                macro_env.network.origins_by_name["O1"]: {"v_ctrl": float("inf")},
+            },
+        )
+    else:
+        raise ValueError(f"RL solver pool only supports 'coordinated'; got '{control_type}'.")
+    solver.setup()
+    return solver
+
+
 # ---- single-run wiring ------------------------------------------------------
 
 def run_single(
@@ -128,6 +155,9 @@ def run_single(
     wait_for_input: bool = True,
     experiment: str = "default",
     redirect_detectors: bool = False,
+    use_rl: bool = False,
+    rl_config_name: str = "default",
+    learning: bool = True,
 ) -> "MicroSimulationResults":
     """
     Build and run one closed-loop SUMO-MPC simulation.
@@ -148,7 +178,8 @@ def run_single(
     macro_env = scenario.build_environment(control_type)
     micro_env = scenario.build_micro_environment()
 
-    solver = _build_solver(macro_env, control_type)
+    if not use_rl:
+        solver = _build_solver(macro_env, control_type)
 
     out_dir, run_id = _resolve_run_dir(scenario_name, control_type, experiment, output_root)
     out_dir.mkdir(parents=True, exist_ok=True)
@@ -172,7 +203,31 @@ def run_single(
     )
 
     _solve_steps = macro_env.solver_config.get("solve_interval_steps", micro_cfg["solve_interval_steps"])
-    if use_async_controller:
+
+    if use_rl:
+        from microscopic.controller.rl_async_mpc import RLAsyncMPCController
+        from microscopic.statistics.rl_stats import save_rl_stats_hdf5, save_rl_stats_json
+        from microscopic.visualisation.learning import RLVisualiser
+
+        rl_config = scenario.get_rl_config(rl_config_name)
+        # Q-table lives at the experiment/control_type level, shared across all RL runs
+        q_table_dir = Path("scenarios") / scenario_name / "micro-sim-runs" / experiment / control_type
+        q_table_dir.mkdir(parents=True, exist_ok=True)
+        q_table_path = q_table_dir / "q_table.npy"
+
+        controller = RLAsyncMPCController.from_config(
+            rl_config=rl_config,
+            solver_factory=lambda alpha, _sc=scenario, _ct=control_type: _build_solver_with_alpha(_sc, _ct, alpha),
+            macro_env=macro_env,
+            micro_env=micro_env,
+            solve_interval_steps=_solve_steps,
+            step_length=sim_config.step_length,
+            learning=learning,
+            q_table_path=q_table_path,
+        )
+        controller.setup_rl()
+
+    elif use_async_controller:
         controller = AsyncMPCController(
             macro_env=macro_env,
             micro_env=micro_env,
@@ -226,13 +281,14 @@ def run_single(
 
     save_hdf5(stats, out_dir / "simulation.h5")
 
+    _active_solver = None if use_rl else solver
     save_run_metadata(
         out_dir=out_dir,
         stats=stats,
         macro_env=macro_env,
         micro_cfg=micro_cfg,
         experiment=experiment,
-        solver=solver,
+        solver=_active_solver,
     )
 
     if output_root is None:
@@ -243,14 +299,28 @@ def run_single(
                 "run_id": run_id,
                 "run_type": control_type,
                 "timestamp": stats.timestamp,
-                "solver_class": type(solver).__name__,
+                "solver_class": type(_active_solver).__name__ if _active_solver else "RLAsyncMPC",
                 "scenario_id": scenario_name,
                 "experiment": experiment,
                 "path": str(out_dir.resolve()),
             },
         )
 
-    if use_async_controller and isinstance(controller, AsyncMPCController):
+    if use_rl:
+        rl_stats = controller.get_rl_stats()
+        save_rl_stats_hdf5(rl_stats, out_dir / "rl_stats.h5")
+        save_rl_stats_json(rl_stats, out_dir / "rl_stats.json")
+        print(f"[rl] {len(rl_stats.records)} RL steps | Q-table → {q_table_path}")
+        if show_dashboard and rl_stats.records:
+            try:
+                rl_dash = RLVisualiser(rl_stats).plot_dashboard(
+                    filename="rl_dashboard.html", output_dir=str(out_dir)
+                )
+                print(f"RL dashboard saved to {rl_dash}")
+            except Exception as e:
+                print(f"RL dashboard skipped: {e}")
+
+    if (use_async_controller or use_rl) and isinstance(controller, AsyncMPCController):
         async_path = out_dir / "async_mpc_stats.h5"
         save_async_stats_hdf5(controller.async_stats, async_path)
         n_completed = sum(1 for r in controller.async_stats.records if r.status == "completed")
@@ -417,6 +487,26 @@ def main() -> None:
         default=True,
         help="Do not wait for user input before starting simulation",
     )
+    parser.add_argument(
+        "--rl",
+        dest="use_rl",
+        action="store_true",
+        default=False,
+        help="Use the RL Q-learning controller (requires --solver coordinated)",
+    )
+    parser.add_argument(
+        "--rl-config-name",
+        dest="rl_config_name",
+        default="default",
+        help="Named RL config from scenario.json 'rl.configs' block (default: 'default')",
+    )
+    parser.add_argument(
+        "--no-learning",
+        dest="learning",
+        action="store_false",
+        default=True,
+        help="Run RL agent in evaluation mode (greedy, no Q-table updates)",
+    )
     args = parser.parse_args()
 
     if "SUMO_HOME" not in os.environ:
@@ -445,6 +535,9 @@ def main() -> None:
             wait_for_input=args.wait_for_input,
             experiment=args.experiment,
             redirect_detectors=args.redirect_detectors,
+            use_rl=args.use_rl,
+            rl_config_name=args.rl_config_name,
+            learning=args.learning,
         )
 
 
