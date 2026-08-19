@@ -55,7 +55,17 @@ class SimulationConfig:
         port: int = 8813,
         **overrides,
     ) -> "SimulationConfig":
-        """Build config from a scenario folder's scenario.json micro block."""
+        """
+        Build config from a scenario folder's scenario.json micro block.
+        
+        Args:
+            scenario_path: Path to a scenario folder containing scenario.json.
+            no_gui: If True, force SUMO to run in headless mode.
+            port: TraCI TCP port for this simulation (must be unique across concurrent runs).
+            **overrides: Any SimulationConfig fields to override from the micro block.
+        Returns:
+            SimulationConfig instance.
+        """
         config_path = Path(scenario_path) / "scenario.json"
         with config_path.open() as f:
             config = json.load(f)
@@ -73,7 +83,9 @@ class SimulationConfig:
 
 
 class SUMOBaseSimulation:
-
+    '''
+    Base class for running a SUMO simulation with a given environment and controller.
+    '''
     def __init__(
         self,
         config: SimulationConfig,
@@ -81,6 +93,16 @@ class SUMOBaseSimulation:
         controller: BaseSUMOController,
         stats: MicroSimulationResults,
     ):
+        '''
+        Base class for running a SUMO simulation with a given environment and controller.
+
+        Args:
+            config: SimulationConfig instance with SUMO parameters.
+            env: MicroEnvironment instance representing the simulation environment.
+            controller: BaseSUMOController instance to control the simulation.
+            stats: MicroSimulationResults instance to collect statistics.
+        
+        '''
         self.config = config
         self.env = env
         self.controller = controller
@@ -93,6 +115,9 @@ class SUMOBaseSimulation:
     # ------------------------------------------------------------------
 
     def setup(self) -> None:
+        '''
+        Checks prerequisites, prepares output directories, starts SUMO, and sets up the environment and controller.
+        '''
         self.check()
         self.config.prepare_output_dirs()
         traci.start(self.config.sumo_cmd, port=self.config.port)
@@ -102,6 +127,9 @@ class SUMOBaseSimulation:
         self.controller.setup()
 
     def check(self) -> None:
+        '''
+        Raise errors if SUMO_HOME is not set or the sumo_cfg file does not exist.
+        '''
         if "SUMO_HOME" not in os.environ:
             raise EnvironmentError("SUMO_HOME environment variable is not set.")
         if not Path(self.config.sumo_cfg).exists():
@@ -149,6 +177,9 @@ class SUMOBaseSimulation:
         
 
     def run(self) -> None:
+        '''
+        Continuously step the simulation until the duration is reached or SUMO signals that all vehicles have left.
+        '''
         for _ in range(self.config.duration_steps):
             # stop early only if SUMO signals all vehicles have left and cleared
             if self._step > 0 and traci.simulation.getMinExpectedNumber() == 0:
@@ -156,6 +187,9 @@ class SUMOBaseSimulation:
             self.step()
 
     def post_run(self) -> None:
+        '''
+        Clean up the simulation, close SUMO, stop the controller, and finalize statistics.
+        '''
         traci.close()
         self.controller.stop()
         self.stats.finalize(
@@ -178,6 +212,12 @@ class SUMOBaseSimulation:
 
         `factory` must be a module-level callable (picklable on Windows spawn).
         Each process owns its TraCI connection on the port set in SimulationConfig.
+
+        Args:
+            factory: A callable that returns a SUMOBaseSimulation instance.
+            result_queue: Optional multiprocessing.Queue to receive the simulation stats after completion.
+        Returns:
+            The multiprocessing.Process object for the spawned simulation.
         """
         p = multiprocessing.Process(
             target=_simulation_worker,
@@ -192,6 +232,16 @@ def _simulation_worker(
     factory: Callable[[], SUMOBaseSimulation],
     result_queue: Optional[multiprocessing.Queue],
 ) -> None:
+    """
+    Module-level worker function to run a SUMOBaseSimulation in a separate process.
+
+    Args:
+        factory: A callable that returns a SUMOBaseSimulation instance.
+        result_queue: Optional multiprocessing.Queue to receive the simulation stats after completion.  
+
+    Raises:
+        Any exceptions raised during simulation setup or execution will propagate to the parent process.
+    """
     sim = factory()
     sim.setup()
     sim.run()

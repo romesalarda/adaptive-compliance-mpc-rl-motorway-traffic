@@ -10,9 +10,9 @@ import numpy as np
 
 from macroscopic.simulation.environment import MacroEnvironment
 from macroscopic.simulation.parameters import BaseParameters, VslParameters
+from sym_metanet import Network, Link, LinkWithVsl
 
 if TYPE_CHECKING:
-    from sym_metanet import Network, Link, LinkWithVsl
     from microscopic.simulation.environment import MicroEnvironment
 
 _SCENARIOS_DIR = Path(__file__).parent

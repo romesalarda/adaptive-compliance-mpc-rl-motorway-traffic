@@ -18,7 +18,7 @@
       "V": 120,
       "v_ctrl": [120, 120, 120, 120],
       "segments_with_vsl": [0, 1, 2, 3],
-      "minimum_speed_limit": 30,
+      "minimum_speed_limit": 60,
       "maximum_speed_limit": 120,
 
       "objective_weights": {
@@ -27,14 +27,14 @@
     },
     "coordinated": {
       "link_class": "FrejoLinkWithVsl",
-      "solver_config": { "Np": 7, "Nc": 5, "M": 6, "function_compactness": 2, "solve_interval_steps": 600 },
-      "alpha_compliance": 0.5,
+      "solver_config": { "Np": 7, "Nc": 5, "M": 6, "function_compactness": 2, "solve_interval_steps": 1200 },
+      "alpha_compliance": 0.1,
       "A": 0.4,
       "E": 1.5,
       "V": 112,
       "v_ctrl": [120, 120, 120, 120],
       "segments_with_vsl": [0, 1, 2, 3],
-      "minimum_speed_limit": 30,
+      "minimum_speed_limit": 60,
       "maximum_speed_limit": 120,
 
       "objective_weights": {
@@ -42,9 +42,9 @@
         "delta_v_max": 10,
         "delta_v_increase": 0,
         "max_temporal_change": 10,
-        "r_weight": 0.4,
+        "r_weight": 0.1,
         "seg4_safety": 1,
-        "queue_threshold": 25,
+        "queue_threshold": 50,
         "seg_4_idx": 3
       }
     },

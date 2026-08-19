@@ -32,6 +32,16 @@ class BaseMicroEnvironment:
         vsl_edge_ids: list[str] | None = None,
         ramp_tl_map: dict[str, str] | None = None,
     ):
+        '''
+        Args:
+            edge_to_segment_map: Mapping from SUMO edge IDs to macro segment indices.
+            origin_w_map: Mapping from SUMO edge IDs to macro origin queue indices.
+            n_segments: Total number of macro segments.
+            n_origins: Total number of macro origins.
+            step_length: Simulation step length in seconds.
+            vsl_edge_ids: List of edge IDs that have variable speed limits.
+            ramp_tl_map: Mapping from origin edge IDs to traffic light IDs for ramp metering.
+        '''
         self.edge_to_segment_map = edge_to_segment_map  # {sumo_edge_id: macro_segment_index}
         self.origin_w_map = origin_w_map                # {sumo_edge_id: w_vector_index}
         self.n_segments = n_segments
@@ -166,6 +176,11 @@ class RampMeteringMixin:
         """
         Set metering rate ∈ [0, 1]: fraction of the cycle that the signal is green.
         No-op when manual_override is active for this TL.
+
+        Args:
+            tl_id: Traffic light ID for the ramp.
+            rate: Fraction of cycle to be green (0.0 = always red, 1.0 = always green).
+        
         """
         if self._manual_override.get(tl_id, False):
             return
@@ -222,4 +237,9 @@ class AggregateStateMixin:
 
 
 class MicroEnvironment(BaseMicroEnvironment, VariableSpeedLimitMixin, RampMeteringMixin):
+    '''
+    MicroEnvironment combines BaseMicroEnvironment with VariableSpeedLimitMixin and RampMeteringMixin.
+    This class is used for microscopic simulations with SUMO, providing methods to manage edge states,
+    variable speed limits, and ramp metering.
+    '''
     pass
