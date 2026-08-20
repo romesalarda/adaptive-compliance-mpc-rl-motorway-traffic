@@ -124,6 +124,7 @@ class RLAsyncMPCController:
         instance.on_step = _types.MethodType(_rl_on_step, instance)
         instance.stop = _types.MethodType(_rl_stop, instance)
         instance.get_rl_stats = lambda: instance._rl_stats
+        instance.print_pre_run_status = _types.MethodType(_rl_print_pre_run_status, instance)
 
         return instance
 
@@ -140,6 +141,8 @@ def _setup_rl(self) -> None:
     self.build_solver_pool(self._rl_alpha_values, self._rl_solver_factory)
     if self._rl_q_table_path is not None:
         self._rl_agent.load_q_table(self._rl_q_table_path)
+    else:
+        self._rl_agent.display_q_table()
     if not self._rl_learning:
         self._rl_agent.epsilon = 0.0
         logger.info("[RL] Evaluation mode: epsilon fixed at 0.")
@@ -270,11 +273,35 @@ def _rl_stop(self, timeout: float = 5.0) -> None:
     Args:
         timeout: float, seconds to wait for the worker thread to finish
     """
+    if self._rl_learning:
+        self._rl_agent.decay_epsilon_episode()
     self._rl_stats.finalise(self._rl_agent)
     if self._rl_learning and self._rl_q_table_path is not None:
         self._rl_agent.save_q_table(self._rl_q_table_path)
         logger.info("[RL] Q-table saved to %s", self._rl_q_table_path)
     AsyncMPCController.stop(self, timeout=timeout)
+
+
+def _rl_print_pre_run_status(self) -> None:
+    """Print RL agent status summary — call before manual_input_check."""
+    agent = self._rl_agent
+    cfg = agent._rl_config if hasattr(agent, "_rl_config") else {}
+    print("\n" + "=" * 60)
+    print("[RL] Agent Status")
+    print("=" * 60)
+    print(f"  Mode            : {'LEARNING' if self._rl_learning else 'EVALUATION (greedy)'}")
+    print(f"  Epsilon (now)   : {agent.epsilon:.4f}  (initial: {agent._initial_epsilon:.4f})")
+    print(f"  LR / gamma      : {agent._initial_lr}  /  {agent._initial_discount}")
+    print(f"  Decay           : {agent._initial_decay} (min={agent._initial_min}, "
+          f"enabled={agent._initial_decay_enabled}, mode={agent._initial_decay_mode})")
+    print(f"  Actions (α)     : {agent.action_values}")
+    print(f"  Total steps     : {agent._total_steps}")
+    print(f"  Total episodes  : {agent._total_episodes}")
+    print(f"  Q-table states  : {len(agent.q_table)}")
+    if self._rl_q_table_path:
+        print(f"  Q-table path    : {self._rl_q_table_path}")
+    agent.display_q_table()
+    print("=" * 60)
 
 
 # ---------------------------------------------------------------------------

@@ -198,6 +198,7 @@ def run_single(
     use_rl: bool = False,
     rl_config_name: str = "default",
     learning: bool = True,
+    
 ) -> "MicroSimulationResults":
     """
     Build and run one closed-loop SUMO-MPC simulation.
@@ -210,6 +211,7 @@ def run_single(
     from microscopic.statistics.base import MicroSimulationResults
     from microscopic.statistics.dump import save_hdf5, parse_tripinfo, parse_collision, parse_queue, save_run_metadata, update_micro_index
     from microscopic.statistics.async_stats import save_async_stats_hdf5
+    from microscopic.statistics.rl_stats import save_rl_descriptor
     from microscopic.visualisation.base import MicroVisualiser
 
     scenario = Scenario(scenario_name)
@@ -255,6 +257,9 @@ def run_single(
         q_table_dir.mkdir(parents=True, exist_ok=True)
         q_table_path = q_table_dir / "q_table.npy"
 
+        # Save descriptor once per experiment+solver folder so the config is always recoverable
+        save_rl_descriptor(rl_config, q_table_dir / "rl_descriptor.json")
+
         controller = RLAsyncMPCController.from_config(
             rl_config=rl_config,
             solver_factory=lambda alpha, _sc=scenario, _ct=control_type: _build_solver_with_alpha(_sc, _ct, alpha),
@@ -289,6 +294,8 @@ def run_single(
     sim.setup()
 
     if wait_for_input:
+        if use_rl:
+            controller.print_pre_run_status()
         sim.manual_input_check()
 
     sim.run()
@@ -547,6 +554,13 @@ def main() -> None:
         default=True,
         help="Run RL agent in evaluation mode (greedy, no Q-table updates)",
     )
+    parser.add_argument(
+        "--repeat",
+        type=int,
+        default=1,
+        metavar="N",
+        help="Run the same single simulation N times in sequence (RL Q-table persists between runs; all other state resets each run)",
+    )
     args = parser.parse_args()
 
     if "SUMO_HOME" not in os.environ:
@@ -565,20 +579,26 @@ def main() -> None:
             redirect_detectors=args.redirect_detectors,
         )
     else:
-        run_single(
-            scenario_name=args.scenario,
-            control_type=args.solver[0],
-            no_gui=args.no_gui,
-            output_root=args.output,
-            port=args.port,
-            use_async_controller=args.use_async_controller,
-            wait_for_input=args.wait_for_input,
-            experiment=args.experiment,
-            redirect_detectors=args.redirect_detectors,
-            use_rl=args.use_rl,
-            rl_config_name=args.rl_config_name,
-            learning=args.learning,
-        )
+        repeat = args.repeat if not (args.batch or len(args.solver) > 1) else 1
+        wait_for_input = args.wait_for_input if not (args.batch or len(args.solver) > 1 or repeat > 1) else False
+
+        for i in range(repeat):
+            if repeat > 1:
+                print(f"\n[REPEAT] Run {i + 1}/{repeat}")
+            run_single(
+                scenario_name=args.scenario,
+                control_type=args.solver[0],
+                no_gui=args.no_gui,
+                output_root=args.output,
+                port=args.port,
+                use_async_controller=args.use_async_controller,
+                wait_for_input=wait_for_input,
+                experiment=args.experiment,
+                redirect_detectors=args.redirect_detectors,
+                use_rl=args.use_rl,
+                rl_config_name=args.rl_config_name,
+                learning=args.learning,
+            )
 
 
 if __name__ == "__main__":

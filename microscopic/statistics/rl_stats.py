@@ -88,6 +88,16 @@ class RLEpisodeStats:
             "total_agent_steps": int(agent._total_steps),
             "total_episodes": int(agent._total_episodes),
             "action_counts": action_counts,
+            "initial_config": {
+                "epsilon": float(agent._initial_epsilon),
+                "learning_rate": float(agent._initial_lr),
+                "discount_factor": float(agent._initial_discount),
+                "epsilon_decay": float(agent._initial_decay),
+                "epsilon_min": float(agent._initial_min),
+                "epsilon_decay_enabled": bool(agent._initial_decay_enabled),
+                "epsilon_decay_mode": str(agent._initial_decay_mode),
+                "action_values": [float(a) for a in agent.action_values],
+            },
         }
         self._finalised = True
 
@@ -225,3 +235,15 @@ def save_rl_stats_json(stats: RLEpisodeStats, path: str | Path) -> None:
 
     with path.open("w") as f:
         json.dump(payload, f, indent=2)
+
+
+def save_rl_descriptor(rl_config: dict, path: str | Path) -> None:
+    """Write the RL config (agent hyperparams, actions, reward) to a JSON descriptor.
+
+    Saved once per experiment folder alongside q_table.npy so the config that
+    produced the Q-table is always recoverable.
+    """
+    path = Path(path)
+    path.parent.mkdir(parents=True, exist_ok=True)
+    with path.open("w") as f:
+        json.dump(rl_config, f, indent=2)

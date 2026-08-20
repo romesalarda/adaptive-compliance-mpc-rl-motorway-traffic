@@ -34,6 +34,7 @@ class QLearningAgent:
         epsilon_decay: float = 0.995,
         epsilon_min: float = 0.01,
         epsilon_decay_enabled: bool = True,
+        epsilon_decay_mode: str = "per_step",
     ) -> None:
         '''
         Args:
@@ -46,6 +47,7 @@ class QLearningAgent:
             epsilon_decay: float, multiplicative decay factor for epsilon after each step
             epsilon_min: float, minimum value for epsilon
             epsilon_decay_enabled: bool, whether to apply epsilon decay
+            epsilon_decay_mode: str, when to decay — "per_step" (each solve interval) or "per_episode" (once per run)
         
         '''
         self.state_discretiser = state_discretiser
@@ -59,6 +61,16 @@ class QLearningAgent:
         self.epsilon_decay = epsilon_decay
         self.epsilon_min = epsilon_min
         self.epsilon_decay_enabled = epsilon_decay_enabled
+        self.epsilon_decay_mode = epsilon_decay_mode
+
+        # Frozen snapshot of construction-time hyperparameters for logging/reporting
+        self._initial_epsilon = epsilon
+        self._initial_lr = learning_rate
+        self._initial_discount = discount_factor
+        self._initial_decay = epsilon_decay
+        self._initial_min = epsilon_min
+        self._initial_decay_enabled = epsilon_decay_enabled
+        self._initial_decay_mode = epsilon_decay_mode
 
         self.q_table: defaultdict[tuple, np.ndarray] = defaultdict(
             lambda: np.zeros(self.n_actions, dtype=np.float64)
@@ -114,7 +126,7 @@ class QLearningAgent:
         Returns:
             total_reward: float, the total reward received for this step
             breakdown_dict: dict[str, float], per-component reward contributions
-            
+
         """
         total_reward, breakdown = self.reward_calculator.calculate(state_data)
 
@@ -142,14 +154,38 @@ class QLearningAgent:
     # ------------------------------------------------------------------
 
     def decay_epsilon(self) -> None:
-        """Decays epsilon only when epsilon_decay_enabled=True."""
-        if not self.epsilon_decay_enabled:
+        """Per-step decay — no-op when disabled or mode is per_episode."""
+        if not self.epsilon_decay_enabled or self.epsilon_decay_mode != "per_step":
+            return
+        self.epsilon = max(self.epsilon_min, self.epsilon * self.epsilon_decay)
+
+    def decay_epsilon_episode(self) -> None:
+        """Per-episode decay — call once at the end of each run."""
+        if not self.epsilon_decay_enabled or self.epsilon_decay_mode != "per_episode":
             return
         self.epsilon = max(self.epsilon_min, self.epsilon * self.epsilon_decay)
 
     def get_q_values_for_state(self, state_data: dict) -> np.ndarray:
         key = self.state_discretiser.key(state_data)
         return self.q_table[key].copy()
+
+    def display_q_table(self) -> None:
+        """Print a formatted summary of the current Q-table to stdout."""
+        n_states = len(self.q_table)
+        action_header = "  ".join(f"α={a:.2f}" for a in self.action_values)
+        print(f"\n[QL] Q-Table ({n_states} state(s) | {action_header})")
+        if n_states == 0:
+            print("  (empty — no states visited yet)")
+            print()
+            return
+        print(f"  {'State key':<30}  {'Best α':>8}  Q-values")
+        print(f"  {'-'*30}  {'-'*8}  {'-'*56}")
+        for key, q_arr in sorted(self.q_table.items(), key=lambda x: str(x[0])):
+            best_idx = int(np.argmax(q_arr))
+            best_alpha = self.action_values[best_idx]
+            q_str = "  ".join(f"{q:+.4f}" for q in q_arr)
+            print(f"  {str(key):<30}  {best_alpha:>8.2f}  [{q_str}]")
+        print()
 
     # ------------------------------------------------------------------
     # Persistence
@@ -195,6 +231,7 @@ class QLearningAgent:
             "[QL] Loaded Q-table from %s (%d states, eps=%.4f, steps=%d)",
             path, len(self.q_table), self.epsilon, self._total_steps,
         )
+        self.display_q_table()
 
     # ------------------------------------------------------------------
     # Episode lifecycle
@@ -226,4 +263,5 @@ class QLearningAgent:
             epsilon_decay=float(agent_cfg.get("epsilon_decay", 0.995)),
             epsilon_min=float(agent_cfg.get("epsilon_min", 0.01)),
             epsilon_decay_enabled=bool(agent_cfg.get("epsilon_decay_enabled", True)),
+            epsilon_decay_mode=str(agent_cfg.get("epsilon_decay_mode", "per_step")),
         )
