@@ -110,3 +110,67 @@ def save_async_stats_hdf5(stats: AsyncMPCStats, path: str | Path) -> None:
                     eg.create_dataset(key, data=vals, dtype=str_dt)
                 else:
                     eg.create_dataset(key, data=np.array(vals, dtype=np.float64))
+
+
+def load_async_stats_hdf5(path: str | Path) -> AsyncMPCStats:
+    """Read an AsyncMPCStats previously written by save_async_stats_hdf5()."""
+    import h5py
+
+    path = Path(path)
+    stats = AsyncMPCStats()
+
+    with h5py.File(path, "r") as f:
+        if "statistics" not in f:
+            return stats
+
+        sg = f["statistics"]
+        n = int(f["meta"].attrs.get("total_cycles", 0))
+
+        scalar_float = [
+            "push_time_sim", "push_time_wall",
+            "receive_time_sim", "receive_time_wall",
+            "solve_time_reported", "solve_time_wall",
+        ]
+        scalars = {key: sg[key][:] if key in sg else np.zeros(n) for key in scalar_float}
+        cycle_id = sg["cycle_id"][:] if "cycle_id" in sg else np.arange(n)
+        queue_full = sg["state_queue_was_full"][:] if "state_queue_was_full" in sg else np.zeros(n, dtype=bool)
+        status = sg["status"].asstr()[:] if "status" in sg else ["completed"] * n
+
+        padded = {key: sg[key][:] if key in sg else None for key in ("state_rho", "state_v", "state_w")}
+        preds = {key: sg[key][:] if key in sg else None for key in ("rho_pred", "v_pred", "w_pred")}
+
+        for i in range(n):
+            record = AsyncMPCSolveRecord(
+                cycle_id=int(cycle_id[i]),
+                push_time_sim=float(scalars["push_time_sim"][i]),
+                push_time_wall=float(scalars["push_time_wall"][i]),
+                receive_time_sim=float(scalars["receive_time_sim"][i]),
+                receive_time_wall=float(scalars["receive_time_wall"][i]),
+                solve_time_reported=float(scalars["solve_time_reported"][i]),
+                solve_time_wall=float(scalars["solve_time_wall"][i]),
+                state_queue_was_full=bool(queue_full[i]),
+                status=str(status[i]),
+            )
+            for key, arr in padded.items():
+                if arr is not None:
+                    row = arr[i]
+                    setattr(record, key, row[~np.isnan(row)].tolist())
+            for key, arr in preds.items():
+                if arr is not None:
+                    setattr(record, key, arr[i].tolist())
+            stats.records.append(record)
+
+        if "queue_events" in f:
+            eg = f["queue_events"]
+            keys = list(eg.keys())
+            n_events = len(eg[keys[0]]) if keys else 0
+            for i in range(n_events):
+                event = {}
+                for key in keys:
+                    val = eg[key][i]
+                    event[key] = val.decode() if isinstance(val, bytes) else (
+                        val if not hasattr(val, "item") else val.item()
+                    )
+                stats.queue_events.append(event)
+
+    return stats
