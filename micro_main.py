@@ -20,6 +20,7 @@ from __future__ import annotations
 import argparse
 import multiprocessing
 import os
+import random
 import re
 import shutil
 import sys
@@ -42,6 +43,9 @@ def _resolve_run_dir(
     control_type: str,
     experiment: str = "default",
     output_root: str | None = None,
+    heterogeneity: str | None = None,
+    demand_descriptor: str | None = None,
+    verbose_descriptor: bool = False,
 ) -> tuple[Path, str]:
     """
     Return (out_dir, run_id). Uses scenario-relative path unless output_root overrides.
@@ -51,6 +55,9 @@ def _resolve_run_dir(
         control_type: str, solver type (rm, vsl, coordinated, base)
         experiment: str, sub-folder under micro-sim-runs/ for grouping runs
         output_root: str or None, if provided overrides the default run path
+        heterogeneity: str or None, scenario heterogeneity descriptor (e.g. "low")
+        demand_descriptor: str or None, scenario demand profile slug (e.g. "hourly-peak")
+        verbose_descriptor: bool, if True append heterogeneity/demand slugs to the folder name
 
     Returns:
         tuple[Path, str]: (output directory, run ID)
@@ -71,7 +78,10 @@ def _resolve_run_dir(
 
     ts = datetime.now().strftime("%Y-%m-%dT%H-%M-%S")
     run_id = f"{control_type}_{counter:03d}"
-    return base / f"{run_id}_{ts}", run_id
+    folder_name = f"{run_id}_{ts}"
+    if verbose_descriptor and heterogeneity and demand_descriptor:
+        folder_name += f"_{heterogeneity}_het__{demand_descriptor}"
+    return base / folder_name, run_id
 
 
 def _copy_detectors(scenario_name: str, out_dir: Path) -> None:
@@ -182,6 +192,63 @@ def _build_solver_with_alpha(scenario: "Scenario", control_type: str, alpha: flo
     return solver
 
 
+# ---- scenario pool helpers ---------------------------------------------------
+
+def _validate_pool_rl_configs(scenario_names: list[str], rl_config_name: str) -> dict:
+    """
+    Ensure every scenario in the pool shares an identical 'state'/'actions' rl-config schema
+    (required since they all train the same Q-table). Returns the first scenario's rl_config.
+    """
+    from scenarios import Scenario
+
+    reference_name = scenario_names[0]
+    reference_cfg = Scenario(reference_name).get_rl_config(rl_config_name)
+    for name in scenario_names[1:]:
+        cfg = Scenario(name).get_rl_config(rl_config_name)
+        for key in ("state", "actions"):
+            if cfg.get(key) != reference_cfg.get(key):
+                raise ValueError(
+                    f"Scenario pool mismatch: '{name}' has a different '{key}' rl-config block "
+                    f"than '{reference_name}'. All pooled scenarios must share the same "
+                    f"'state'/'actions' schema so they can train one Q-table."
+                )
+    return reference_cfg
+
+
+def _build_scenario_schedule(scenario_names: list[str], n: int, seed: int | None) -> list[str]:
+    """Stratified schedule: each scenario appears floor(n/k) or ceil(n/k) times, order shuffled."""
+    k = len(scenario_names)
+    base, remainder = divmod(n, k)
+    rng = random.Random(seed)
+
+    schedule: list[str] = []
+    for name in scenario_names:
+        schedule.extend([name] * base)
+
+    extra_names = rng.sample(scenario_names, remainder)
+    schedule.extend(extra_names)
+
+    rng.shuffle(schedule)
+    return schedule
+
+
+def _save_pool_scenarios_descriptor(q_table_dir: Path, pool_name: str) -> None:
+    """Write pool_scenarios.json listing each pooled scenario's heterogeneity/demand descriptor."""
+    import json
+    from scenarios import Scenario
+
+    entries = []
+    for name in pool_name.split("+"):
+        sc = Scenario(name)
+        entries.append({
+            "scenario": name,
+            "heterogeneity": sc.heterogeneity,
+            "demand_descriptor": sc.demand_descriptor,
+        })
+    with open(q_table_dir / "pool_scenarios.json", "w", encoding="utf-8") as fh:
+        json.dump({"pool_name": pool_name, "scenarios": entries}, fh, indent=2)
+
+
 # ---- single-run wiring ------------------------------------------------------
 
 def run_single(
@@ -198,7 +265,9 @@ def run_single(
     use_rl: bool = False,
     rl_config_name: str = "default",
     learning: bool = True,
-    
+    pool_name: str | None = None,
+    verbose_descriptor: bool = False,
+
 ) -> "MicroSimulationResults":
     """
     Build and run one closed-loop SUMO-MPC simulation.
@@ -223,7 +292,15 @@ def run_single(
     if not use_rl:
         solver = _build_solver(macro_env, control_type)
 
-    out_dir, run_id = _resolve_run_dir(scenario_name, control_type, experiment, output_root)
+    out_dir, run_id = _resolve_run_dir(
+        scenario_name,
+        control_type,
+        experiment,
+        output_root,
+        heterogeneity=scenario.heterogeneity,
+        demand_descriptor=scenario.demand_descriptor,
+        verbose_descriptor=verbose_descriptor,
+    )
     out_dir.mkdir(parents=True, exist_ok=True)
 
     sim_config = SimulationConfig.from_scenario(
@@ -252,13 +329,18 @@ def run_single(
         from microscopic.visualisation.learning import RLVisualiser
 
         rl_config = scenario.get_rl_config(rl_config_name)
-        # Q-table lives at the experiment/control_type level, shared across all RL runs
-        q_table_dir = Path("scenarios") / scenario_name / "micro-sim-runs" / experiment / control_type
+        # Q-table lives at the experiment/control_type level (or pool level when pool_name is set)
+        if pool_name is not None:
+            q_table_dir = Path("scenarios") / "_pools" / pool_name / experiment / control_type
+        else:
+            q_table_dir = Path("scenarios") / scenario_name / "micro-sim-runs" / experiment / control_type
         q_table_dir.mkdir(parents=True, exist_ok=True)
         q_table_path = q_table_dir / "q_table.npy"
 
         # Save descriptor once per experiment+solver folder so the config is always recoverable
         save_rl_descriptor(rl_config, q_table_dir / "rl_descriptor.json")
+        if pool_name is not None:
+            _save_pool_scenarios_descriptor(q_table_dir, pool_name)
 
         controller = RLAsyncMPCController.from_config(
             rl_config=rl_config,
@@ -336,6 +418,8 @@ def run_single(
         micro_cfg=micro_cfg,
         experiment=experiment,
         solver=_active_solver,
+        heterogeneity=scenario.heterogeneity,
+        demand_descriptor=scenario.demand_descriptor,
     )
 
     if output_root is None:
@@ -350,6 +434,9 @@ def run_single(
                 "scenario_id": scenario_name,
                 "experiment": experiment,
                 "path": str(out_dir.resolve()),
+                "heterogeneity": scenario.heterogeneity,
+                "demand_descriptor": scenario.demand_descriptor,
+                "pool_name": pool_name,
             },
         )
 
@@ -424,6 +511,7 @@ def run_batch(
     use_async_controller: bool = True,
     experiment: str = "default",
     redirect_detectors: bool = False,
+    verbose_descriptor: bool = False,
 ) -> list:
     """
     Run multiple control types in parallel using isolated processes.
@@ -446,6 +534,7 @@ def run_batch(
             use_async_controller=use_async_controller,
             experiment=experiment,
             redirect_detectors=redirect_detectors,
+            verbose_descriptor=verbose_descriptor,
         )
         p = multiprocessing.Process(
             target=_batch_worker,
@@ -470,7 +559,7 @@ def run_batch(
 class _SimFactory:
     """Picklable factory that creates and runs one simulation."""
 
-    def __init__(self, scenario_name, control_type, port, output_root, no_gui, use_async_controller=True, experiment="default", redirect_detectors=False):
+    def __init__(self, scenario_name, control_type, port, output_root, no_gui, use_async_controller=True, experiment="default", redirect_detectors=False, verbose_descriptor=False):
         self.scenario_name = scenario_name
         self.control_type = control_type
         self.port = port
@@ -479,6 +568,7 @@ class _SimFactory:
         self.use_async_controller = use_async_controller
         self.experiment = experiment
         self.redirect_detectors = redirect_detectors
+        self.verbose_descriptor = verbose_descriptor
 
     def __call__(self):
         return run_single(
@@ -491,6 +581,7 @@ class _SimFactory:
             use_async_controller=self.use_async_controller,
             experiment=self.experiment,
             redirect_detectors=self.redirect_detectors,
+            verbose_descriptor=self.verbose_descriptor,
         )
 
 
@@ -504,6 +595,19 @@ def _batch_worker(factory: _SimFactory, result_queue: multiprocessing.Queue) -> 
 def main() -> None:
     parser = argparse.ArgumentParser(description="Run SUMO-MPC closed-loop simulation")
     parser.add_argument("--scenario", default="a2_motorway", help="Scenario folder name")
+    parser.add_argument(
+        "--scenarios",
+        default=None,
+        help="Comma-separated pool of scenario names for RL training (e.g. 'a3_motorway_a,a3_motorway_b'). "
+             "Requires --rl; each --repeat run draws from the pool via a stratified shuffle.",
+    )
+    parser.add_argument(
+        "--pool-name",
+        dest="pool_name",
+        default=None,
+        help="Override the auto-generated pool folder name (default: sorted scenario names joined by '+')",
+    )
+    parser.add_argument("--seed", type=int, default=None, help="Seed for the --scenarios stratified shuffle (default: random)")
     parser.add_argument("--solver", nargs="+", default=["rm"],
                         choices=["rm", "vsl", "coordinated", "base"],
                         help="Solver type(s). Multiple values trigger --batch automatically.")
@@ -519,6 +623,13 @@ def main() -> None:
         action="store_true",
         default=False,
         help="Copy SUMO detector outputs from micronet/detectors/ into the run folder after simulation",
+    )
+    parser.add_argument(
+        "--verbose-descriptor",
+        dest="verbose_descriptor",
+        action="store_true",
+        default=False,
+        help="Append scenario heterogeneity/demand descriptor slugs to the run folder name",
     )
     parser.add_argument(
         "--no-async-controller",
@@ -566,6 +677,16 @@ def main() -> None:
     if "SUMO_HOME" not in os.environ:
         sys.exit("SUMO_HOME is not set. Please configure it before running.")
 
+    scenario_pool: list[str] | None = None
+    if args.scenarios is not None:
+        scenario_pool = [s.strip() for s in args.scenarios.split(",") if s.strip()]
+        if not args.use_rl:
+            sys.exit("--scenarios requires --rl (scenario pooling only applies to RL training).")
+        if args.batch or len(args.solver) > 1:
+            sys.exit("--scenarios cannot be combined with --batch or multiple --solver values.")
+        if not scenario_pool:
+            sys.exit("--scenarios must list at least one scenario name.")
+
     if args.batch or len(args.solver) > 1:
         run_batch(
             scenario_name=args.scenario,
@@ -577,16 +698,28 @@ def main() -> None:
             use_async_controller=args.use_async_controller,
             experiment=args.experiment,
             redirect_detectors=args.redirect_detectors,
+            verbose_descriptor=args.verbose_descriptor,
         )
     else:
         repeat = args.repeat if not (args.batch or len(args.solver) > 1) else 1
         wait_for_input = args.wait_for_input if not (args.batch or len(args.solver) > 1 or repeat > 1) else False
 
+        if scenario_pool is not None:
+            from scenarios import pool_name_for
+
+            _validate_pool_rl_configs(scenario_pool, args.rl_config_name)
+            pool_name = args.pool_name or pool_name_for(scenario_pool)
+            schedule = _build_scenario_schedule(scenario_pool, repeat, args.seed)
+            print(f"[pool] '{pool_name}' schedule ({repeat} runs): {schedule}")
+        else:
+            pool_name = None
+            schedule = [args.scenario] * repeat
+
         for i in range(repeat):
             if repeat > 1:
                 print(f"\n[REPEAT] Run {i + 1}/{repeat}")
             run_single(
-                scenario_name=args.scenario,
+                scenario_name=schedule[i],
                 control_type=args.solver[0],
                 no_gui=args.no_gui,
                 output_root=args.output,
@@ -598,6 +731,8 @@ def main() -> None:
                 use_rl=args.use_rl,
                 rl_config_name=args.rl_config_name,
                 learning=args.learning,
+                pool_name=pool_name,
+                verbose_descriptor=args.verbose_descriptor,
             )
 
 

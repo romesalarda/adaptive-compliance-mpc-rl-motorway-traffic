@@ -125,16 +125,51 @@ class RLOverviewVisualiser:
 
     def load(self) -> "RLOverviewVisualiser":
         """Load index.json, all rl_stats.h5 files, and q_table.npy. Returns self."""
-        index_path = self.experiment_dir / "index.json"
+        runs = self._read_index_runs(self.experiment_dir, self.control_type)
+        runs.sort(key=lambda r: r.get("timestamp") or "")
+        self._load_runs(runs)
+        self._load_q_table()
+
+        print(f"Loaded {len(self._runs)} episodes for '{self.control_type}'")
+        return self
+
+    def load_pool(
+        self, experiment_dirs: list[str | Path], pool_control_dir: str | Path
+    ) -> "RLOverviewVisualiser":
+        """
+        Load runs merged across a scenario pool's experiment dirs, sorted globally by
+        timestamp, with the shared Q-table read from pool_control_dir instead of
+        experiment_dir/control_type.
+        """
+        runs: list[dict] = []
+        for exp_dir in experiment_dirs:
+            for run in self._read_index_runs(Path(exp_dir), self.control_type):
+                run = dict(run)
+                run["_source_experiment_dir"] = str(exp_dir)
+                runs.append(run)
+        runs.sort(key=lambda r: r.get("timestamp") or "")
+
+        self._load_runs(runs)
+        self.control_dir = Path(pool_control_dir)
+        self._load_q_table()
+
+        print(f"Loaded {len(self._runs)} episodes for '{self.control_type}' across {len(experiment_dirs)} pooled scenarios")
+        return self
+
+    @staticmethod
+    def _read_index_runs(experiment_dir: Path, control_type: str) -> list[dict]:
+        """Read index.json and return raw run entries filtered by control_type (unsorted)."""
+        index_path = experiment_dir / "index.json"
         if not index_path.exists():
             raise FileNotFoundError(f"index.json not found: {index_path}")
 
         with open(index_path, encoding="utf-8") as fh:
             index = json.load(fh)
 
-        runs = [r for r in index.get("runs", []) if r.get("run_type") == self.control_type]
-        runs.sort(key=lambda r: r.get("timestamp") or "")
+        return [r for r in index.get("runs", []) if r.get("run_type") == control_type]
 
+    def _load_runs(self, runs: list[dict]) -> None:
+        """Load meta/steps for each run entry and populate instance state."""
         metas: list[dict | None] = []
         steps: list[dict | None] = []
         for run in runs:
@@ -152,11 +187,6 @@ class RLOverviewVisualiser:
         self._metas = list(self._metas)
         self._steps = list(self._steps)
         self._episode_numbers = list(range(1, len(self._runs) + 1))
-
-        self._load_q_table()
-
-        print(f"Loaded {len(self._runs)} episodes for '{self.control_type}'")
-        return self
 
     def _load_q_table(self) -> None:
         qt_path = self.control_dir / "q_table.npy"

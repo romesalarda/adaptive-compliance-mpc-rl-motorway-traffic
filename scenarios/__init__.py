@@ -17,6 +17,11 @@ if TYPE_CHECKING:
 
 _SCENARIOS_DIR = Path(__file__).parent
 
+
+def pool_name_for(scenario_names: list[str]) -> str:
+    """Deterministic pool folder name shared by micro_main.py and rl.py."""
+    return "+".join(sorted(scenario_names))
+
 # Maps control type to the Parameters class that should be instantiated
 _PARAMS_REGISTRY: dict[str, type[BaseParameters]] = {
     "base": BaseParameters,
@@ -131,6 +136,16 @@ class Scenario:
     def demands_meta(self) -> dict:
         """Raw demands config for use with RunSet.new_run(demands_meta=...)."""
         return self._config["demands"]
+
+    @property
+    def heterogeneity(self) -> str:
+        """Top-level 'heterogeneity' descriptor (low/medium/high); 'unspecified' if absent."""
+        return self._config.get("heterogeneity", "unspecified")
+
+    @property
+    def demand_descriptor(self) -> str:
+        """Short slug describing the demand profile (e.g. 'hourly-peak'); 'unspecified' if absent."""
+        return self._config.get("demands", {}).get("descriptor", "unspecified")
 
     def get_rl_config(self, config_name: str = "default") -> dict:
         """Return the named RL config block from scenario.json's 'rl.configs' section."""

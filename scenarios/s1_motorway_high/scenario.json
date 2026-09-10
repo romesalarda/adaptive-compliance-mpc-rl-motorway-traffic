@@ -1,6 +1,7 @@
 {
   "name": "A3 Motorway",
   "description": "6-segment motorway with on-ramp at node N2",
+  "heterogeneity": "high",
   "parameters": {
     "a": 1.867,
     "rho_init": [10, 10, 10, 10, 10, 10],
@@ -65,7 +66,9 @@
     "fp": [
       [2000, 3800, 3800, 2000, 2000],
       [1000, 1500, 1500, 1000, 1000]
-    ]
+    ],
+    "description": "Peak hour demand",
+    "descriptor": "hourly-peak"
   },
   "micro": {
     "sumo_config": "micronet/motorway.sumocfg",
@@ -98,7 +101,7 @@
           "learning_rate": 0.1,
           "discount_factor": 0.95,
           "epsilon": 1.0,
-          "epsilon_decay": 0.995,
+          "epsilon_decay": 0.990,
           "epsilon_min": 0.01,
           "epsilon_decay_enabled": true,
           "epsilon_decay_mode": "per_episode"
@@ -119,8 +122,8 @@
         },
         "reward": {
           "components": {
-            "tts": { "weight": 1.0, "window_seconds": 300 },
-            "collisions": { "weight": 0.5, "window_seconds": 300 }
+            "tts": { "weight": 1.0, "window_seconds": 1200 },
+            "collisions": { "weight": 15, "window_seconds": 1200 }
           }
         },
         "solver_pool": {

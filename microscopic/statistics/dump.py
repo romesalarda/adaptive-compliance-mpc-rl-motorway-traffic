@@ -243,6 +243,8 @@ def save_run_metadata(
     micro_cfg: dict,
     experiment: str = "default",
     solver=None,
+    heterogeneity: str | None = None,
+    demand_descriptor: str | None = None,
 ) -> None:
     """Save meta.json, parameters.json, network.json, demands.json, micro_config.json."""
     from macroscopic.statistics.dump import (
@@ -257,6 +259,8 @@ def save_run_metadata(
         "scenario_id": stats.scenario_id,
         "experiment": experiment,
         "solver_class": type(solver).__name__ if solver is not None else None,
+        "heterogeneity": heterogeneity,
+        "demand_descriptor": demand_descriptor,
     }
     if solver is not None:
         meta["solver_config"] = numpy_to_python({
