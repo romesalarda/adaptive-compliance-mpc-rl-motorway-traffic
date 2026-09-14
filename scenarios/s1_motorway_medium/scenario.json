@@ -122,8 +122,8 @@
         },
         "reward": {
           "components": {
-            "tts": { "weight": 1.0, "window_seconds": 1200 },
-            "collisions": { "weight": 15, "window_seconds": 1200 }
+            "tts": { "weight": 1.0, "window_seconds": 600 },
+            "collisions": { "weight": 30, "window_seconds": 600 }
           }
         },
         "solver_pool": {

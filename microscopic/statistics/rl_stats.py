@@ -247,3 +247,27 @@ def save_rl_descriptor(rl_config: dict, path: str | Path) -> None:
     path.parent.mkdir(parents=True, exist_ok=True)
     with path.open("w") as f:
         json.dump(rl_config, f, indent=2)
+
+
+def update_rl_runs_log(q_table_dir: str | Path, entry: dict) -> None:
+    """Append a run entry to runs_log.json alongside q_table.npy.
+
+    Lets a user track how many runs have fed into a shared Q-table (e.g. a
+    scenario pool) and see the latest epsilon/Q-table snapshot at a glance.
+    """
+    q_table_dir = Path(q_table_dir)
+    q_table_dir.mkdir(parents=True, exist_ok=True)
+    log_path = q_table_dir / "runs_log.json"
+
+    if log_path.exists():
+        with open(log_path, "r", encoding="utf-8") as fh:
+            log = json.load(fh)
+    else:
+        log = {"runs": []}
+
+    log["runs"].append(entry)
+    log["runs_completed"] = len(log["runs"])
+    log["latest_snapshot"] = entry
+
+    with log_path.open("w", encoding="utf-8") as fh:
+        json.dump(log, fh, indent=2)

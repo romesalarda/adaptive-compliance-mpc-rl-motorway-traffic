@@ -1,0 +1,10 @@
+{
+  "pool_name": "s1_motorway_medium",
+  "scenarios": [
+    {
+      "scenario": "s1_motorway_medium",
+      "heterogeneity": "medium",
+      "demand_descriptor": "hourly-peak"
+    }
+  ]
+}

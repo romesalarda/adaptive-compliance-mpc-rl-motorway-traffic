@@ -31,6 +31,13 @@ from pathlib import Path
 
 from typing import TYPE_CHECKING
 
+from microscopic.controller.rl_async_mpc import RLAsyncMPCController
+from microscopic.statistics.rl_stats import save_rl_stats_hdf5, save_rl_stats_json, update_rl_runs_log
+from microscopic.visualisation.learning import RLVisualiser
+from microscopic.statistics.dump import save_error_report
+
+from macroscopic.solvers import MpcRMSimulation, MpcVSLSimulation, MpcCoordinatedSimulation, DummyMPCSolver
+
 if TYPE_CHECKING:
     from microscopic.statistics.base import MicroSimulationResults
     from macroscopic.solvers.base import BaseMPCSolver
@@ -116,7 +123,6 @@ def _build_solver(macro_env, control_type: str):
     Returns:
         BaseMPCSolver, the fully setup solver instance
     """
-    from macroscopic.solvers import MpcRMSimulation, MpcVSLSimulation, MpcCoordinatedSimulation, DummyMPCSolver
 
     sc = macro_env.solver_config
     common = dict(
@@ -303,200 +309,225 @@ def run_single(
     )
     out_dir.mkdir(parents=True, exist_ok=True)
 
-    sim_config = SimulationConfig.from_scenario(
-        scenario_path=str(Path("scenarios") / scenario_name),
-        no_gui=no_gui,
-        port=port,
-    )
-    # absolute paths so SUMO writes named outputs directly into the run directory
-    sim_config.extra_args = [
-        "--tripinfo-output", str(out_dir.resolve() / "tripinfo.xml"),
-        "--collision-output", str(out_dir.resolve() / "collision.xml"),
-        "--queue-output", str(out_dir.resolve() / "queue.xml"),
-    ]
-
-    stats = MicroSimulationResults(
-        scenario_id=scenario_name,
-        solver_type=control_type,
-        run_id=run_id,
-    )
-
-    _solve_steps = macro_env.solver_config.get("solve_interval_steps", micro_cfg["solve_interval_steps"])
-
-    if use_rl:
-        from microscopic.controller.rl_async_mpc import RLAsyncMPCController
-        from microscopic.statistics.rl_stats import save_rl_stats_hdf5, save_rl_stats_json
-        from microscopic.visualisation.learning import RLVisualiser
-
-        rl_config = scenario.get_rl_config(rl_config_name)
-        # Q-table lives at the experiment/control_type level (or pool level when pool_name is set)
-        if pool_name is not None:
-            q_table_dir = Path("scenarios") / "_pools" / pool_name / experiment / control_type
-        else:
-            q_table_dir = Path("scenarios") / scenario_name / "micro-sim-runs" / experiment / control_type
-        q_table_dir.mkdir(parents=True, exist_ok=True)
-        q_table_path = q_table_dir / "q_table.npy"
-
-        # Save descriptor once per experiment+solver folder so the config is always recoverable
-        save_rl_descriptor(rl_config, q_table_dir / "rl_descriptor.json")
-        if pool_name is not None:
-            _save_pool_scenarios_descriptor(q_table_dir, pool_name)
-
-        controller = RLAsyncMPCController.from_config(
-            rl_config=rl_config,
-            solver_factory=lambda alpha, _sc=scenario, _ct=control_type: _build_solver_with_alpha(_sc, _ct, alpha),
-            macro_env=macro_env,
-            micro_env=micro_env,
-            solve_interval_steps=_solve_steps,
-            step_length=sim_config.step_length,
-            learning=learning,
-            q_table_path=q_table_path,
+    try:
+        sim_config = SimulationConfig.from_scenario(
+            scenario_path=str(Path("scenarios") / scenario_name),
+            no_gui=no_gui,
+            port=port,
         )
-        controller.setup_rl()
+        # absolute paths so SUMO writes named outputs directly into the run directory
+        sim_config.extra_args = [
+            "--tripinfo-output", str(out_dir.resolve() / "tripinfo.xml"),
+            "--collision-output", str(out_dir.resolve() / "collision.xml"),
+            "--queue-output", str(out_dir.resolve() / "queue.xml"),
+        ]
 
-    elif use_async_controller:
-        controller = AsyncMPCController(
-            macro_env=macro_env,
-            micro_env=micro_env,
-            solver=solver,
-            solve_interval_steps=_solve_steps,
-            step_length=sim_config.step_length,
-        )
-    else:
-        controller = SynchronousMPCController(
-            macro_env=macro_env,
-            micro_env=micro_env,
-            solver=solver,
-            solve_interval_steps=_solve_steps,
+        stats = MicroSimulationResults(
+            scenario_id=scenario_name,
+            solver_type=control_type,
+            run_id=run_id,
         )
 
-    sim = SUMOBaseSimulation(sim_config, micro_env, controller, stats)
+        _solve_steps = macro_env.solver_config.get("solve_interval_steps", micro_cfg["solve_interval_steps"])
 
-    t0 = time.perf_counter()
-    sim.setup()
-
-    if wait_for_input:
         if use_rl:
-            controller.print_pre_run_status()
-        sim.manual_input_check()
 
-    sim.run()
-    sim.post_run()
+            rl_config = scenario.get_rl_config(rl_config_name)
+            # Q-table lives at the experiment/control_type level (or pool level when pool_name is set)
+            if pool_name is not None:
+                q_table_dir = Path("scenarios") / "_pools" / pool_name / experiment / control_type
+            else:
+                q_table_dir = Path("scenarios") / scenario_name / "micro-sim-runs" / experiment / control_type
+            q_table_dir.mkdir(parents=True, exist_ok=True)
+            q_table_path = q_table_dir / "q_table.npy"
 
-    if redirect_detectors:
-        _copy_detectors(scenario_name, out_dir)
+            # Save descriptor once per experiment+solver folder so the config is always recoverable
+            save_rl_descriptor(rl_config, q_table_dir / "rl_descriptor.json")
+            if pool_name is not None:
+                _save_pool_scenarios_descriptor(q_table_dir, pool_name)
 
-    wall_time = time.perf_counter() - t0
-
-    # finalize with geometry (all A2 segments are 1 km, 2 lanes)
-    n_seg = micro_cfg["n_segments"]
-    stats.finalize(
-        step_length=sim_config.step_length,
-        n_steps=sim._step,
-        segment_lengths_km=[1.0] * n_seg,
-        segment_lanes=[2] * n_seg,
-        runtime_s=wall_time,
-    )
-
-    # TODO: fix negative predictions
-
-    # parse SUMO output files
-    sumo_data = {
-        "tripinfo": parse_tripinfo(out_dir / "tripinfo.xml"),
-        "collision": parse_collision(out_dir / "collision.xml"),
-        "queue": parse_queue(out_dir / "queue.xml"),
-    }
-    stats.overview.total_collisions = sumo_data["collision"]["num_collisions"]
-
-    save_hdf5(stats, out_dir / "simulation.h5")
-
-    _active_solver = None if use_rl else solver
-    save_run_metadata(
-        out_dir=out_dir,
-        stats=stats,
-        macro_env=macro_env,
-        micro_cfg=micro_cfg,
-        experiment=experiment,
-        solver=_active_solver,
-        heterogeneity=scenario.heterogeneity,
-        demand_descriptor=scenario.demand_descriptor,
-    )
-
-    if output_root is None:
-        experiment_dir = Path("scenarios") / scenario_name / "micro-sim-runs" / experiment
-        update_micro_index(
-            experiment_dir=experiment_dir,
-            entry={
-                "run_id": run_id,
-                "run_type": control_type,
-                "timestamp": stats.timestamp,
-                "solver_class": type(_active_solver).__name__ if _active_solver else "RLAsyncMPC",
-                "scenario_id": scenario_name,
-                "experiment": experiment,
-                "path": str(out_dir.resolve()),
-                "heterogeneity": scenario.heterogeneity,
-                "demand_descriptor": scenario.demand_descriptor,
-                "pool_name": pool_name,
-            },
-        )
-
-    if use_rl:
-        rl_stats = controller.get_rl_stats()
-        save_rl_stats_hdf5(rl_stats, out_dir / "rl_stats.h5")
-        save_rl_stats_json(rl_stats, out_dir / "rl_stats.json")
-        print(f"[rl] {len(rl_stats.records)} RL steps | Q-table → {q_table_path}")
-        if show_dashboard and rl_stats.records:
-            try:
-                rl_dash = RLVisualiser(rl_stats).plot_dashboard(
-                    filename="rl_dashboard.html", output_dir=str(out_dir)
-                )
-                print(f"RL dashboard saved to {rl_dash}")
-            except Exception as e:
-                print(f"RL dashboard skipped: {e}")
-
-    if (use_async_controller or use_rl) and isinstance(controller, AsyncMPCController):
-        async_path = out_dir / "async_mpc_stats.h5"
-        save_async_stats_hdf5(controller.async_stats, async_path)
-        n_completed = sum(1 for r in controller.async_stats.records if r.status == "completed")
-        mean_solve = (
-            sum(r.solve_time_reported for r in controller.async_stats.records) / n_completed
-            if n_completed else 0.0
-        )
-        print(f"[async-mpc] {n_completed} cycles | mean solve={mean_solve:.3f}s | stats → {async_path}")
-
-    if show_dashboard:
-        vis = MicroVisualiser(stats, edge_labels=list(micro_cfg["edge_to_segment_map"].keys()))
-        dash_path = vis.plot_dashboard(
-            filename="dashboard.html",
-            output_dir=str(out_dir),
-            sumo_data=sumo_data,
-        )
-        print(f"Dashboard saved to {dash_path}")
-
-        if use_async_controller and isinstance(controller, AsyncMPCController):
-            async_dash_path = vis.plot_async_dashboard(
-                async_stats=controller.async_stats,
-                filename="async_dashboard.html",
-                output_dir=str(out_dir),
+            controller = RLAsyncMPCController.from_config(
+                rl_config=rl_config,
+                solver_factory=lambda alpha, _sc=scenario, _ct=control_type: _build_solver_with_alpha(_sc, _ct, alpha),
+                macro_env=macro_env,
+                micro_env=micro_env,
+                solve_interval_steps=_solve_steps,
+                step_length=sim_config.step_length,
+                learning=learning,
+                q_table_path=q_table_path,
             )
-            print(f"Async dashboard saved to {async_dash_path}")
-            try:
-                pred_dash_path = vis.plot_prediction_analysis(
+            controller.setup_rl()
+
+        elif use_async_controller:
+            controller = AsyncMPCController(
+                macro_env=macro_env,
+                micro_env=micro_env,
+                solver=solver,
+                solve_interval_steps=_solve_steps,
+                step_length=sim_config.step_length,
+            )
+        else:
+            controller = SynchronousMPCController(
+                macro_env=macro_env,
+                micro_env=micro_env,
+                solver=solver,
+                solve_interval_steps=_solve_steps,
+            )
+
+        sim = SUMOBaseSimulation(sim_config, micro_env, controller, stats)
+
+        t0 = time.perf_counter()
+        sim.setup()
+
+        if wait_for_input:
+            if use_rl:
+                controller.print_pre_run_status()
+            sim.manual_input_check()
+
+        sim.run()
+        sim.post_run()
+
+        if redirect_detectors:
+            _copy_detectors(scenario_name, out_dir)
+
+        wall_time = time.perf_counter() - t0
+
+        # finalize with geometry (all A2 segments are 1 km, 2 lanes)
+        n_seg = micro_cfg["n_segments"]
+        stats.finalize(
+            step_length=sim_config.step_length,
+            n_steps=sim._step,
+            segment_lengths_km=[1.0] * n_seg,
+            segment_lanes=[2] * n_seg,
+            runtime_s=wall_time,
+        )
+
+        # TODO: fix negative predictions
+
+        # parse SUMO output files
+        sumo_data = {
+            "tripinfo": parse_tripinfo(out_dir / "tripinfo.xml"),
+            "collision": parse_collision(out_dir / "collision.xml"),
+            "queue": parse_queue(out_dir / "queue.xml"),
+        }
+        stats.overview.total_collisions = sumo_data["collision"]["num_collisions"]
+
+        save_hdf5(stats, out_dir / "simulation.h5")
+
+        _active_solver = None if use_rl else solver
+        save_run_metadata(
+            out_dir=out_dir,
+            stats=stats,
+            macro_env=macro_env,
+            micro_cfg=micro_cfg,
+            experiment=experiment,
+            solver=_active_solver,
+            heterogeneity=scenario.heterogeneity,
+            demand_descriptor=scenario.demand_descriptor,
+        )
+
+        if output_root is None:
+            experiment_dir = Path("scenarios") / scenario_name / "micro-sim-runs" / experiment
+            update_micro_index(
+                experiment_dir=experiment_dir,
+                entry={
+                    "run_id": run_id,
+                    "run_type": control_type,
+                    "timestamp": stats.timestamp,
+                    "solver_class": type(_active_solver).__name__ if _active_solver else "RLAsyncMPC",
+                    "scenario_id": scenario_name,
+                    "experiment": experiment,
+                    "path": str(out_dir.resolve()),
+                    "heterogeneity": scenario.heterogeneity,
+                    "demand_descriptor": scenario.demand_descriptor,
+                    "pool_name": pool_name,
+                },
+            )
+
+        if use_rl:
+            rl_stats = controller.get_rl_stats()
+            save_rl_stats_hdf5(rl_stats, out_dir / "rl_stats.h5")
+            save_rl_stats_json(rl_stats, out_dir / "rl_stats.json")
+            print(f"[rl] {len(rl_stats.records)} RL steps | Q-table → {q_table_path}")
+            update_rl_runs_log(
+                q_table_dir,
+                entry={
+                    "run_id": run_id,
+                    "scenario_id": scenario_name,
+                    "control_type": control_type,
+                    "experiment": experiment,
+                    "pool_name": pool_name,
+                    "path": str(out_dir.resolve()),
+                    "timestamp": stats.timestamp,
+                    "learning": learning,
+                    **{
+                        k: rl_stats.episode_summary.get(k)
+                        for k in ("final_epsilon", "q_table_size", "total_agent_steps", "total_episodes", "n_steps", "mean_reward")
+                    },
+                },
+            )
+            if show_dashboard and rl_stats.records:
+                try:
+                    rl_dash = RLVisualiser(rl_stats).plot_dashboard(
+                        filename="rl_dashboard.html", output_dir=str(out_dir)
+                    )
+                    print(f"RL dashboard saved to {rl_dash}")
+                except Exception as e:
+                    print(f"RL dashboard skipped: {e}")
+
+        if (use_async_controller or use_rl) and isinstance(controller, AsyncMPCController):
+            async_path = out_dir / "async_mpc_stats.h5"
+            save_async_stats_hdf5(controller.async_stats, async_path)
+            n_completed = sum(1 for r in controller.async_stats.records if r.status == "completed")
+            mean_solve = (
+                sum(r.solve_time_reported for r in controller.async_stats.records) / n_completed
+                if n_completed else 0.0
+            )
+            print(f"[async-mpc] {n_completed} cycles | mean solve={mean_solve:.3f}s | stats → {async_path}")
+
+        if show_dashboard:
+            vis = MicroVisualiser(stats, edge_labels=list(micro_cfg["edge_to_segment_map"].keys()))
+            dash_path = vis.plot_dashboard(
+                filename="dashboard.html",
+                output_dir=str(out_dir),
+                sumo_data=sumo_data,
+            )
+            print(f"Dashboard saved to {dash_path}")
+
+            if use_async_controller and isinstance(controller, AsyncMPCController):
+                async_dash_path = vis.plot_async_dashboard(
                     async_stats=controller.async_stats,
-                    filename="prediction_analysis.html",
+                    filename="async_dashboard.html",
                     output_dir=str(out_dir),
                 )
-                print(f"Prediction analysis saved to {pred_dash_path}")
-            except ValueError as e:
-                print(f"Prediction analysis skipped: {e}")
+                print(f"Async dashboard saved to {async_dash_path}")
+                try:
+                    pred_dash_path = vis.plot_prediction_analysis(
+                        async_stats=controller.async_stats,
+                        filename="prediction_analysis.html",
+                        output_dir=str(out_dir),
+                    )
+                    print(f"Prediction analysis saved to {pred_dash_path}")
+                except ValueError as e:
+                    print(f"Prediction analysis skipped: {e}")
 
-    print(
-        f"[{scenario_name}/{control_type}] "
-        f"TTS={stats.overview.total_time_spent:.1f} veh·h | "
-        f"Collisions={stats.overview.total_collisions} | "
-        f"Wall time={wall_time:.1f}s"
-    )
-    return stats
+        print(
+            f"[{scenario_name}/{control_type}] "
+            f"TTS={stats.overview.total_time_spent:.1f} veh·h | "
+            f"Collisions={stats.overview.total_collisions} | "
+            f"Wall time={wall_time:.1f}s"
+        )
+        return stats
+    except (Exception, KeyboardInterrupt) as e:
+        save_error_report(
+            out_dir=out_dir,
+            exc=e,
+            scenario_id=scenario_name,
+            control_type=control_type,
+            run_id=run_id,
+            experiment=experiment,
+        )
+        raise
 
 
 # ---- batch run --------------------------------------------------------------

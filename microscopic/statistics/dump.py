@@ -278,6 +278,45 @@ def save_run_metadata(
     _write_json(out_dir / "micro_config.json", micro_cfg)
 
 
+def save_error_report(
+    out_dir: Path,
+    exc: BaseException,
+    scenario_id: str,
+    control_type: str,
+    run_id: str,
+    experiment: str = "default",
+    errors_root: str | Path = "Errors",
+) -> None:
+    """Record a crash's info in the run folder and in a top-level Errors/ folder.
+
+    Called from the exception handler around a run so the run's failure (incl.
+    KeyboardInterrupt) is still recoverable/traceable after the process exits.
+    """
+    import traceback
+    from datetime import datetime
+
+    report = {
+        "timestamp": datetime.now().isoformat(timespec="seconds"),
+        "scenario_id": scenario_id,
+        "control_type": control_type,
+        "run_id": run_id,
+        "experiment": experiment,
+        "run_path": str(Path(out_dir).resolve()),
+        "exception_type": type(exc).__name__,
+        "exception_message": str(exc),
+        "traceback": traceback.format_exc(),
+    }
+
+    out_dir = Path(out_dir)
+    out_dir.mkdir(parents=True, exist_ok=True)
+    _write_json(out_dir / "error.json", report)
+
+    errors_dir = Path(errors_root)
+    errors_dir.mkdir(parents=True, exist_ok=True)
+    ts_slug = datetime.now().strftime("%Y-%m-%dT%H-%M-%S")
+    _write_json(errors_dir / f"{ts_slug}_{scenario_id}_{control_type}_{run_id}.json", report)
+
+
 def update_micro_index(experiment_dir: Path, entry: dict) -> None:
     """Append a run entry to the experiment-level index.json, creating it if absent."""
     experiment_dir = Path(experiment_dir)

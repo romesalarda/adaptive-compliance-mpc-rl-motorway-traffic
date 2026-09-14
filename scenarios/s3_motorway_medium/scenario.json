@@ -1,0 +1,135 @@
+{
+  "name": "A3 Motorway",
+  "description": "6-segment motorway with on-ramp at node N2",
+  "heterogeneity": "medium",
+  "parameters": {
+    "a": 1.867,
+    "rho_init": [10, 10, 10, 10, 10, 10],
+    "v_free_init": [112, 112, 112, 112, 112, 112],
+    "w_init": [0, 0],
+    "r_init": [1]
+  },
+  "control_parameters": {
+    "vsl": {
+      "link_class": "FrejoLinkWithVsl",
+      "solver_config": { "Np": 7, "Nc": 3, "M": 6, "function_compactness": 2, "solve_interval_steps": 600 },
+      "alpha_compliance": 0.1,
+      "A": 0.8,
+      "E": 3.0,
+      "V": 120,
+      "v_ctrl": [120, 120, 120, 120],
+      "segments_with_vsl": [0, 1, 2, 3],
+      "minimum_speed_limit": 60,
+      "maximum_speed_limit": 120,
+
+      "objective_weights": {
+        "temporal_smoothness": 0.4
+      }
+    },
+    "coordinated": {
+      "link_class": "FrejoLinkWithVsl",
+      "solver_config": { "Np": 7, "Nc": 5, "M": 6, "function_compactness": 2, "solve_interval_steps": 1200 },
+      "alpha_compliance": 0.1,
+      "A": 0.4,
+      "E": 1.5,
+      "V": 112,
+      "v_ctrl": [120, 120, 120, 120],
+      "segments_with_vsl": [0, 1, 2, 3],
+      "minimum_speed_limit": 60,
+      "maximum_speed_limit": 120,
+
+      "objective_weights": {
+        "temporal_smoothness": 0.4,
+        "delta_v_max": 10,
+        "delta_v_increase": 0,
+        "max_temporal_change": 10,
+        "r_weight": 0.1,
+        "seg4_safety": 1,
+        "queue_threshold": 50,
+        "seg_4_idx": 3
+      }
+    },
+    "rm": {
+      "solver_config": { "Np": 7, "Nc": 3, "M": 6, "function_compactness": 2, "solve_interval_steps": 600 },
+      "objective_weights": {
+        "r_weight": 0.4,
+        "seg4_safety": 1,
+        "queue_threshold": 25,
+        "seg_4_idx": 3
+      }
+    }
+  },
+  "demands": {
+    "type": "interp",
+    "sources": ["mainline", "on_ramp"],
+    "xp": [0.0, 0.5, 1.0, 1.5, 2.5],
+    "fp": [
+      [3000, 3500, 3500, 3000, 3000],
+      [800, 2000, 2000, 800, 800]
+    ],
+    "description": "High ramp demand",
+    "descriptor": "high-ramp"
+  },
+  "micro": {
+    "sumo_config": "micronet/motorway.sumocfg",
+    "step_length": 0.1,
+    "duration_steps": 90000,
+    "solve_interval_steps": 600,
+    "n_segments": 6,
+    "n_origins": 2,
+    "edge_to_segment_map": {
+      "seg1": 0,
+      "seg2": 1,
+      "seg3": 2,
+      "seg4": 3,
+      "seg5": 4,
+      "seg6": 5
+    },
+    "origin_w_map": {
+      "ramp_approach": 1
+    },
+    "vsl_edge_ids": ["seg1", "seg2", "seg3", "seg4"],
+    "ramp_tl_map": {
+      "ramp_approach": "ramp_meter"
+    },
+    "output_subdirs": ["detectors"]
+  },
+  "rl": {
+    "configs": {
+      "default": {
+        "agent": {
+          "learning_rate": 0.1,
+          "discount_factor": 0.95,
+          "epsilon": 1.0,
+          "epsilon_decay": 0.990,
+          "epsilon_min": 0.01,
+          "epsilon_decay_enabled": true,
+          "epsilon_decay_mode": "per_episode"
+        },
+        "state": {
+          "features": [
+            {
+              "name": "mean_critical_density",
+              "source": "mean_density",
+              "segment_indices": [3, 4],
+              "thresholds": [32.3, 45.0],
+              "labels": ["low", "medium", "high"]
+            }
+          ]
+        },
+        "actions": {
+          "alpha_values": [0.1, 0.3, 0.5, 0.7, 0.9]
+        },
+        "reward": {
+          "components": {
+            "tts": { "weight": 1.0, "window_seconds": 600 },
+            "collisions": { "weight": 30, "window_seconds": 600 }
+          }
+        },
+        "solver_pool": {
+          "rebuild_strategy": "pool"
+        }
+      }
+    }
+  }
+}
