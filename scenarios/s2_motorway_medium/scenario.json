@@ -50,7 +50,7 @@
       }
     },
     "rm": {
-      "solver_config": { "Np": 7, "Nc": 3, "M": 6, "function_compactness": 2, "solve_interval_steps": 600 },
+      "solver_config": { "Np": 7, "Nc": 3, "M": 6, "function_compactness": 2, "solve_interval_steps": 1200 },
       "objective_weights": {
         "r_weight": 0.4,
         "seg4_safety": 1,
@@ -122,8 +122,8 @@
         },
         "reward": {
           "components": {
-            "tts": { "weight": 1.0, "window_seconds": 600 },
-            "collisions": { "weight": 30, "window_seconds": 600 }
+            "tts": { "weight": 1.0, "window_seconds": 1200 },
+            "collisions": { "weight": 30, "window_seconds": 1200 }
           }
         },
         "solver_pool": {

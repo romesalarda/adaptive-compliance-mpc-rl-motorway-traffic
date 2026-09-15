@@ -162,9 +162,10 @@ class MpcVSLSimulation(BaseMPCSolver):
             if k % 100 == 0:
                 LOGGER.info(f"step {k} of {self.environment.demands.shape[0]}")
 
-    def solve_single_step(self, rho, v, w, demands_forecast, current_time=None):
-    
-        self._v_ctrl_last_value = self.environment.parameters.v_ctrl if self._v_ctrl_last_value is None else self._v_ctrl_last_value
+    def solve_single_step(self, rho, v, w, demands_forecast, current_time=None, v_ctrl_last=None):
+
+        fallback_v_ctrl_last = self.environment.parameters.v_ctrl if self._v_ctrl_last_value is None else self._v_ctrl_last_value
+        v_ctrl_last = self._coerce_last_control(v_ctrl_last, self.v_ctrl.size1(), fallback_v_ctrl_last)
 
         d_hat = demands_forecast
 
@@ -182,7 +183,7 @@ class MpcVSLSimulation(BaseMPCSolver):
                 "v_0": v_safe,
                 "w_0": w_safe,
                 "d": d_hat.T,
-                "v_ctrl_last": self._v_ctrl_last_value,
+                "v_ctrl_last": v_ctrl_last,
             },
         )
         LOGGER.info(f"\nsolve_single_step: v_ctrl={sol.vals['v_ctrl']} for cycle at t={current_time}")

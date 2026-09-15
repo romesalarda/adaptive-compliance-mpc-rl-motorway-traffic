@@ -120,11 +120,15 @@ class MpcCoordinatedSimulation(MpcVSLSimulation):
             if k % 100 == 0:
                 LOGGER.info(f"step {k} of {self.environment.demands.shape[0]}")
 
-    def solve_single_step(self, rho, v, w, demands_forecast, current_time=None):
+    def solve_single_step(self, rho, v, w, demands_forecast, current_time=None, v_ctrl_last=None, r_last=None):
+        """v_ctrl_last/r_last should be the controller's true last-applied control (avoids stale continuity when solvers are swapped by RL)."""
 
-        r_last = cs.DM.ones(self.r.size1(), 1) if self._r_last_value is None else self._r_last_value
-        self._v_ctrl_last_value = self.environment.parameters.v_ctrl if self._v_ctrl_last_value is None else self._v_ctrl_last_value
-  
+        fallback_r_last = cs.DM.ones(self.r.size1(), 1) if self._r_last_value is None else self._r_last_value
+        r_last = self._coerce_last_control(r_last, self.r.size1(), fallback_r_last)
+
+        fallback_v_ctrl_last = self.environment.parameters.v_ctrl if self._v_ctrl_last_value is None else self._v_ctrl_last_value
+        v_ctrl_last = self._coerce_last_control(v_ctrl_last, self.v_ctrl.size1(), fallback_v_ctrl_last)
+
         d_hat = demands_forecast
 
         rho_safe = cs.fmax(rho, 1e-3)
@@ -143,7 +147,7 @@ class MpcCoordinatedSimulation(MpcVSLSimulation):
                     "w_0": w_safe,
                     "d": d_hat.T,
                     "r_last": r_last,
-                    "v_ctrl_last": self._v_ctrl_last_value,
+                    "v_ctrl_last": v_ctrl_last,
                 },
             )
         except Exception as exc:

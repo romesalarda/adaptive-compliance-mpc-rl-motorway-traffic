@@ -1,0 +1,56 @@
+{
+  "agent": {
+    "learning_rate": 0.1,
+    "discount_factor": 0.95,
+    "epsilon": 1.0,
+    "epsilon_decay": 0.99,
+    "epsilon_min": 0.01,
+    "epsilon_decay_enabled": true,
+    "epsilon_decay_mode": "per_episode"
+  },
+  "state": {
+    "features": [
+      {
+        "name": "mean_critical_density",
+        "source": "mean_density",
+        "segment_indices": [
+          3,
+          4
+        ],
+        "thresholds": [
+          32.3,
+          45.0
+        ],
+        "labels": [
+          "low",
+          "medium",
+          "high"
+        ]
+      }
+    ]
+  },
+  "actions": {
+    "alpha_values": [
+      0.1,
+      0.3,
+      0.5,
+      0.7,
+      0.9
+    ]
+  },
+  "reward": {
+    "components": {
+      "tts": {
+        "weight": 1.0,
+        "window_seconds": 1200
+      },
+      "collisions": {
+        "weight": 30,
+        "window_seconds": 1200
+      }
+    }
+  },
+  "solver_pool": {
+    "rebuild_strategy": "pool"
+  }
+}

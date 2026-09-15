@@ -139,6 +139,7 @@ def _setup_rl(self) -> None:
     logger.info("\n[RL] Building solver pool with rebuild strategy: %s", self._rl_config.get("solver_pool", {}).get("rebuild_strategy", "pool"))
 
     self.build_solver_pool(self._rl_alpha_values, self._rl_solver_factory)
+    _validate_solver_pool_timing(self)
     if self._rl_q_table_path is not None:
         self._rl_agent.load_q_table(self._rl_q_table_path)
     else:
@@ -235,9 +236,14 @@ def _rl_on_step(self, step: int, env: "MicroEnvironment", state: dict) -> None:
             reward_total, epsilon_before,
         )
 
-        # Swap solver under lock so the worker thread can't start a stale solve
-        with self._solver_lock:
-            self.swap_solver(alpha)
+        # Swap solver under lock so the worker thread can't start a stale solve.
+        # Skip the swap entirely when the policy re-selects the same alpha, so the solver
+        # pointer (and any in-flight solve) is left completely undisturbed.
+        if alpha != self._rl_prev_alpha:
+            with self._solver_lock:
+                self.swap_solver(alpha)
+        else:
+            logger.debug("[RL] alpha unchanged (%.2f) — skipping solver swap", alpha)
 
         if self._rl_learning:
             self._rl_agent.decay_epsilon()
@@ -277,8 +283,17 @@ def _rl_stop(self, timeout: float = 5.0) -> None:
         self._rl_agent.decay_epsilon_episode()
     self._rl_stats.finalise(self._rl_agent)
     if self._rl_learning and self._rl_q_table_path is not None:
+        self._rl_agent._total_episodes += 1
         self._rl_agent.save_q_table(self._rl_q_table_path)
         logger.info("[RL] Q-table saved to %s", self._rl_q_table_path)
+
+        # per-episode snapshot for tracking Q-table evolution over training
+        snapshot_path = (
+            self._rl_q_table_path.parent / "q-tables"
+            / f"q-table-ep-{self._rl_agent._total_episodes}.npy"
+        )
+        self._rl_agent.save_q_table(snapshot_path)
+        logger.info("[RL] Q-table snapshot saved to %s", snapshot_path)
     AsyncMPCController.stop(self, timeout=timeout)
 
 
@@ -312,3 +327,29 @@ def _max_reward_window(rl_config: dict) -> float:
     components = rl_config.get("reward", {}).get("components", {})
     windows = [float(v.get("window_seconds", 300)) for v in components.values()]
     return max(windows) if windows else 300.0
+
+
+def _validate_solver_pool_timing(self) -> None:
+    """Warn if any pooled solver's Np/Nc/M/solve_interval_steps disagree — they must share one MPC timing scheme."""
+    pool = getattr(self, "_solver_pool", None)
+    if not pool:
+        return
+    expected_steps = self._solve_interval_s / self.step_length
+    for alpha, solver in pool.items():
+        sc = getattr(solver.environment, "solver_config", {}) or {}
+        got_steps = sc.get("solve_interval_steps")
+        if got_steps is not None and not np.isclose(got_steps, expected_steps):
+            logger.warning(
+                "[RL] pooled solver \u03b1=%.2f has solve_interval_steps=%s but controller expects %.1f — "
+                "pool members must share identical solve timing or MPC predictions will misalign.",
+                alpha, got_steps, expected_steps,
+            )
+        for attr in ("Np", "Nc", "M"):
+            expected_val = getattr(solver, attr, None)
+            reference_val = getattr(next(iter(pool.values())), attr, None)
+            if expected_val != reference_val:
+                logger.warning(
+                    "[RL] pooled solver \u03b1=%.2f has %s=%s, differing from other pool members (%s) — "
+                    "check solver_factory consistency.",
+                    alpha, attr, expected_val, reference_val,
+                )
