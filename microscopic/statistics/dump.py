@@ -104,6 +104,9 @@ def load_hdf5(path: str | Path) -> MicroSimulationResults:
         run = MicroRunSimulationResults()
         run.steps = rg["steps"][:].tolist() if "steps" in rg else []
         run.timestamps = rg["timestamps"][:].tolist() if "timestamps" in rg else []
+        # Stacked (n_solves, n_channels) arrays -> list of per-solve 1D arrays, matching record_step()
+        run.v_ctrl_applied = list(rg["v_ctrl_applied"][:]) if "v_ctrl_applied" in rg else []
+        run.r_applied = list(rg["r_applied"][:]) if "r_applied" in rg else []
         run.mpc_solve_times = rg["mpc_solve_times"][:].tolist() if "mpc_solve_times" in rg else []
         run.solve_steps = rg["solve_steps"][:].tolist() if "solve_steps" in rg else []
         run.solve_timestamps = rg["solve_timestamps"][:].tolist() if "solve_timestamps" in rg else []

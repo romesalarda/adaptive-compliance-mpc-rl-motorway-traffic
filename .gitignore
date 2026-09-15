@@ -9,6 +9,7 @@ micro-sim-runs/
 .venv/
 .env
 venv/
+data/
 micronet/
 env/
 .DS_Store

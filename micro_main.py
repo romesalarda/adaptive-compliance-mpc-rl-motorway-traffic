@@ -743,7 +743,7 @@ def main() -> None:
             schedule = _build_scenario_schedule(scenario_pool, repeat, args.seed)
             print(f"[pool] '{pool_name}' schedule ({repeat} runs): {schedule}")
         else:
-            pool_name = None
+            pool_name = args.pool_name
             schedule = [args.scenario] * repeat
 
         for i in range(repeat):
