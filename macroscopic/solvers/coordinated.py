@@ -156,6 +156,8 @@ class MpcCoordinatedSimulation(MpcVSLSimulation):
             r_fallback = float(np.clip(np.array(r_last).flatten()[0], 0.0, 1.0))
             return {"r": r_fallback}
 
+        print(sol.vals)
+
         r_first = np.clip(np.array(sol.vals["r"][:, 0]).flatten(), 0.0, 1.0)
         self._v_ctrl_last_value = sol.vals["v_ctrl"][:, 0]
 
