@@ -22,11 +22,12 @@ class TTSRewardComponent:
 
     weight: float = 1.0
     name: str = "tts"
+    scale: float = 1.0
 
     def calculate(self, state_data: dict) -> float:
         tts_increase = float(state_data.get("tts_increase", 0.0))
-        # negative: larger TTS increase → larger penalty → lower reward
-        return -tts_increase
+        # normalise by 'scale' so magnitude is comparable across scenarios with different baseline TTS
+        return -tts_increase / self.scale
 
 
 @dataclass
@@ -58,7 +59,10 @@ def reward_from_config(cfg: dict) -> "WeightedRewardCalculator":
             )
         klass = _registry[comp_name]
         weight = float(comp_cfg.get("weight", 1.0))
-        components.append(klass(weight=weight))
+        kwargs = {"weight": weight}
+        if "scale" in comp_cfg and klass is TTSRewardComponent:
+            kwargs["scale"] = float(comp_cfg["scale"])
+        components.append(klass(**kwargs))
 
     return WeightedRewardCalculator(components)
 
