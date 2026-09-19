@@ -28,11 +28,11 @@
     },
     "coordinated": {
       "link_class": "FrejoLinkWithVsl",
-      "solver_config": { "Np": 7, "Nc": 5, "M": 6, "function_compactness": 2, "solve_interval_steps": 1200 },
+      "solver_config": { "Np": 7, "Nc": 5, "M": 6, "function_compactness": 2, "solve_interval_steps": 2400 },
       "alpha_compliance": 0.01,
       "A": 0.4,
       "E": 1.5,
-      "V": 120,
+      "V": 112,
       "v_ctrl": [120, 120, 120, 120],
       "segments_with_vsl": [0, 1, 2, 3],
       "minimum_speed_limit": 60,
@@ -74,7 +74,7 @@
     "sumo_config": "micronet/motorway.sumocfg",
     "step_length": 0.1,
     "duration_steps": 90000,
-    "solve_interval_steps": 600,
+    "solve_interval_steps": 2400,
     "n_segments": 6,
     "n_origins": 2,
     "edge_to_segment_map": {

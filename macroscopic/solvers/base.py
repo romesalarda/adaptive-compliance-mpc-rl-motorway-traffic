@@ -551,7 +551,7 @@ class BaseMPCSolver(BaseSimulation):
 
 class DummyMPCSolver(BaseMPCSolver):
 
-    def solve_single_step(self, rho, v, w, demands_forecast, current_time=None):
+    def solve_single_step(self, rho, v, w, demands_forecast, current_time=None, *args, **kwargs):
         return {
             "r": 1,
         }
