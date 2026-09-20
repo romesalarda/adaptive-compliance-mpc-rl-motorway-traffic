@@ -29,7 +29,7 @@
     "coordinated": {
       "link_class": "FrejoLinkWithVsl",
       "solver_config": { "Np": 7, "Nc": 5, "M": 6, "function_compactness": 2, "solve_interval_steps": 2400},
-      "alpha_compliance": 0.05,
+      "alpha_compliance": 0.01,
       "A": 0.4,
       "E": 1.5,
       "V": 112,
@@ -124,12 +124,12 @@
           ]
         },
         "actions": {
-          "alpha_values": [0.1, 0.3, 0.5, 0.7, 0.9]
+          "alpha_values": [0.01, 0.017, 0.032, 0.056, 0.1]
         },
         "reward": {
           "components": {
             "tts": { "weight": 1.0, "window_seconds": 300, "scale": 15.0 },
-            "collisions": { "weight": 30, "window_seconds": 1200 }
+            "collisions": { "weight": 3, "window_seconds": 1200 }
           }
         },
         "solver_pool": {

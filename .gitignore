@@ -18,6 +18,7 @@ env/
 logs/
 *.log
 temp/
+Errors/
 /tmp/
 *.sqlite3
 coverage
