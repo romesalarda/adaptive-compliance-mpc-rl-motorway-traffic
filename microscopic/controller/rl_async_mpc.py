@@ -113,11 +113,16 @@ class RLAsyncMPCController:
         instance._rl_prev_alpha = mid_alpha
         instance._rl_step_count = 0
 
-        window_s = _max_reward_window(rl_config)
-        window_intervals = max(1, int(window_s / (solve_interval_steps * step_length)))
-        instance._rl_tts_deque = deque(maxlen=window_intervals + 1)
+        reward_components = rl_config.get("reward", {}).get("components", {})
+        decision_period_s = solve_interval_steps * step_length
+        instance._rl_tts_window_s = float(
+            reward_components.get("tts", {}).get("window_seconds", 300)
+        )
+        instance._rl_tts_deque = deque()
         instance._rl_collision_deque = deque()
-        instance._rl_collision_window_s = float(window_s)
+        instance._rl_collision_window_s = float(
+            reward_components.get("collisions", {}).get("window_seconds", 300)
+        )
 
         # Bind RL methods directly onto the instance
         instance.setup_rl = _types.MethodType(_setup_rl, instance)
@@ -190,6 +195,9 @@ def _rl_on_step(self, step: int, env: "MicroEnvironment", state: dict) -> None:
         # Collect RL metrics
         current_tts = _rl_compute_tts(self, state)
         self._rl_tts_deque.append((sim_time, current_tts))
+        prune_before = sim_time - self._rl_tts_window_s
+        while len(self._rl_tts_deque) > 1 and self._rl_tts_deque[0][0] < prune_before:
+            self._rl_tts_deque.popleft()
         tts_increase = (
             self._rl_tts_deque[-1][1] - self._rl_tts_deque[0][1]
             if len(self._rl_tts_deque) >= 2

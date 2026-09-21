@@ -101,7 +101,7 @@
           "learning_rate": 0.1,
           "discount_factor": 0.95,
           "epsilon": 1.0,
-          "epsilon_decay": 0.990,
+          "epsilon_decay": 0.98,
           "epsilon_min": 0.01,
           "epsilon_decay_enabled": true,
           "epsilon_decay_mode": "per_episode"
@@ -128,7 +128,7 @@
         },
         "reward": {
           "components": {
-            "tts": { "weight": 1.0, "window_seconds": 300, "scale": 15.0 },
+            "tts": { "weight": 1.0, "window_seconds": 300, "scale": 18.75 },
             "collisions": { "weight": 3, "window_seconds": 1200 }
           }
         },
