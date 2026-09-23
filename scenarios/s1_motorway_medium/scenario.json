@@ -43,7 +43,7 @@
         "delta_v_max": 10,
         "delta_v_increase": 0,
         "max_temporal_change": 10,
-        "r_weight": 0.05,
+        "r_weight": 0.1,
         "seg4_safety": 1,
         "queue_threshold": 100,
         "seg_4_idx": 3

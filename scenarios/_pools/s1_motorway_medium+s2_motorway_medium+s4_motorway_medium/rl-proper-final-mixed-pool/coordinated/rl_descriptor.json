@@ -54,7 +54,7 @@
       "tts": {
         "weight": 1.0,
         "window_seconds": 300,
-        "scale": 18.75
+        "scale": 22.88
       },
       "collisions": {
         "weight": 3,
