@@ -1,0 +1,56 @@
+{
+  "scenarios": [
+    {
+      "id": "scenario_1",
+      "label": "Scenario 1",
+      "real_scenario_id": "s1_motorway_medium",
+      "static_path": "scenarios/s1_motorway_medium/micro-sim-runs/0.01-runs/coordinated",
+      "rl_path": "data/s1_medium_rl_eval_revamped_5/s1_motorway_medium",
+      "scenario_config": "scenarios/s1_motorway_medium/scenario.json"
+    },
+    {
+      "id": "scenario_2",
+      "label": "Scenario 2",
+      "real_scenario_id": "s2_motorway_medium",
+      "static_path": "scenarios/s2_motorway_medium/micro-sim-runs/0.01-runs/coordinated",
+      "rl_path": "data/s2_medium_rl_eval_revamped_5/s2_motorway_medium",
+      "scenario_config": "scenarios/s2_motorway_medium/scenario.json"
+    },
+    {
+      "id": "scenario_3",
+      "label": "Scenario 3",
+      "real_scenario_id": "s4_motorway_medium",
+      "static_path": "scenarios/s4_motorway_medium/micro-sim-runs/0.01-runs/coordinated",
+      "rl_path": "data/s4_medium_rl_eval_revamped_5/s4_motorway_medium",
+      "scenario_config": "scenarios/s4_motorway_medium/scenario.json"
+    }
+  ],
+  "rl": {
+    "action_values": [0.01, 0.017, 0.032, 0.056, 0.1],
+    "static_alpha": 0.01
+  },
+  "rl_policy": {
+    "pool_path": "scenarios/_pools/s1_motorway_medium+s2_motorway_medium+s4_motorway_medium/rl-proper-final-mixed-pool/coordinated",
+    "runs_log_file": "runs_log.json",
+    "descriptor_file": "rl_descriptor.json",
+    "q_tables_dir": "q-tables",
+    "q_table_filename_pattern": "q-table-ep-{episode}.npy",
+    "episode": 50
+  },
+  "bootstrap": {
+    "n_bootstrap": 1000,
+    "ci": 0.95,
+    "seed": 42
+  },
+  "cache": {
+    "enabled": true,
+    "dir": "report/output/cache"
+  },
+  "output": {
+    "dir": "report/output",
+    "figures_dir": "report/output/figures",
+    "tables_dir": "report/output/tables",
+    "formats": ["pdf", "png"],
+    "dpi": 300
+  }
+}

@@ -20,6 +20,7 @@ logs/
 temp/
 Errors/
 /tmp/
+report/output/
 *.sqlite3
 coverage
 .coverage

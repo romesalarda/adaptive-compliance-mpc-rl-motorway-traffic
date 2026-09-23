@@ -735,16 +735,22 @@ def main() -> None:
         repeat = args.repeat if not (args.batch or len(args.solver) > 1) else 1
         wait_for_input = args.wait_for_input if not (args.batch or len(args.solver) > 1 or repeat > 1) else False
 
+        override_schedule = ['s1_motorway_medium', 's1_motorway_medium', 's4_motorway_medium', 's4_motorway_medium', 's2_motorway_medium', 's4_motorway_medium', 's4_motorway_medium', 's4_motorway_medium', 's2_motorway_medium', 's1_motorway_medium', 's1_motorway_medium', 's2_motorway_medium', 's2_motorway_medium', 's4_motorway_medium', 's1_motorway_medium', 's4_motorway_medium', 's1_motorway_medium', 's1_motorway_medium', 's1_motorway_medium', 's2_motorway_medium', 's2_motorway_medium', 's4_motorway_medium', 's1_motorway_medium', 's1_motorway_medium', 's4_motorway_medium', 's2_motorway_medium', 's1_motorway_medium', 's4_motorway_medium', 's4_motorway_medium', 's1_motorway_medium', 's2_motorway_medium', 's4_motorway_medium', 's1_motorway_medium', 's4_motorway_medium', 's4_motorway_medium', 's4_motorway_medium', 's1_motorway_medium', 's2_motorway_medium', 's4_motorway_medium', 's2_motorway_medium', 's2_motorway_medium', 's4_motorway_medium', 's4_motorway_medium', 's4_motorway_medium', 's1_motorway_medium', 's2_motorway_medium', 's1_motorway_medium', 's4_motorway_medium', 's1_motorway_medium', 's2_motorway_medium', 's2_motorway_medium', 's1_motorway_medium', 's1_motorway_medium', 's1_motorway_medium', 's4_motorway_medium', 's1_motorway_medium', 's1_motorway_medium', 's2_motorway_medium', 's1_motorway_medium', 's1_motorway_medium', 's2_motorway_medium', 's2_motorway_medium', 's4_motorway_medium', 's2_motorway_medium', 's2_motorway_medium', 's2_motorway_medium', 's1_motorway_medium', 's2_motorway_medium', 's2_motorway_medium', 's1_motorway_medium', 's4_motorway_medium', 's4_motorway_medium', 's4_motorway_medium', 's1_motorway_medium', 's1_motorway_medium', 's4_motorway_medium', 's4_motorway_medium', 's2_motorway_medium', 's1_motorway_medium', 's2_motorway_medium', 's2_motorway_medium', 's2_motorway_medium', 's2_motorway_medium', 's4_motorway_medium', 's2_motorway_medium', 's2_motorway_medium', 's1_motorway_medium', 's4_motorway_medium', 's2_motorway_medium', 's4_motorway_medium', 's4_motorway_medium', 's2_motorway_medium', 's2_motorway_medium', 's2_motorway_medium', 's1_motorway_medium', 's4_motorway_medium', 's1_motorway_medium', 's1_motorway_medium', 's4_motorway_medium', 's2_motorway_medium']
+
         if scenario_pool is not None:
             from scenarios import pool_name_for
 
             _validate_pool_rl_configs(scenario_pool, args.rl_config_name)
             pool_name = args.pool_name or pool_name_for(scenario_pool)
-            schedule = _build_scenario_schedule(scenario_pool, repeat, args.seed)
+            
+            schedule = _build_scenario_schedule(scenario_pool, repeat, args.seed) # TODO: warning remove this
+            schedule = override_schedule[:repeat]
+
             print(f"[pool] '{pool_name}' schedule ({repeat} runs): {schedule}")
         else:
             pool_name = args.pool_name
             schedule = [args.scenario] * repeat
+
 
         for i in range(repeat):
             if repeat > 1:
