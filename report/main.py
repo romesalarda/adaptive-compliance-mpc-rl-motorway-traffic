@@ -22,11 +22,13 @@ from report.plots import (
     plot_demand_profiles,
     plot_q_table_heatmap,
     plot_rl_alpha_selection,
+    plot_rm_usage,
     plot_rmse,
     plot_rmse_full_horizon_combined,
     plot_tts_collisions,
+    plot_vsl_usage,
 )
-from report.tables import build_overview_table, build_q_table_frame, write_table
+from report.tables import build_control_usage_table, build_overview_table, build_q_table_frame, write_table
 
 
 def main() -> None:
@@ -56,9 +58,14 @@ def main() -> None:
     plot_rmse("speed", results, cfg.scenarios, cfg)
     plot_rmse_full_horizon_combined(results, cfg.scenarios, cfg)
     plot_rl_alpha_selection(action_counts, cfg.scenarios, cfg.action_values, cfg.static_alpha, cfg)
+    plot_vsl_usage(results, cfg.scenarios, cfg)
+    plot_rm_usage(results, cfg.scenarios, cfg)
 
     overview_df = build_overview_table(results, cfg.scenarios, cfg)
     write_table(overview_df, cfg.tables_dir / "overview")
+
+    control_usage_df = build_control_usage_table(results, cfg.scenarios, cfg)
+    write_table(control_usage_df, cfg.tables_dir / "control_usage")
 
     # --- shared mixed-pool Q-table snapshot, cross-checked against the training log ---
     LOGGER.info(f"--- RL policy snapshot (episode {cfg.rl_policy.episode}) ---")

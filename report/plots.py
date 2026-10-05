@@ -190,6 +190,60 @@ def plot_rmse_full_horizon_combined(results: Results, scenarios: list[ScenarioCo
     plt.close(fig)
 
 
+def _plot_control_usage(
+    key: str,
+    solve_t_key: str,
+    ylabel: str,
+    filename: str,
+    results: Results,
+    scenarios: list[ScenarioConfig],
+    cfg: ReportConfig,
+) -> None:
+    """Shared line-plot builder for VSL/RM usage: mean applied control (averaged across channels) with bootstrap CI band."""
+    apply_ieee_style()
+    fig, ax = plt.subplots(figsize=(DOUBLE_COL_WIDTH, 2.4))
+    for sc in scenarios:
+        color = SCENARIO_COLORS[sc.id]
+        for controller in ("static", "rl"):
+            agg = results[sc.id][controller]
+            if key not in agg:
+                LOGGER.warning(f"No {key} data for {sc.id}/{controller}; skipping line")
+                continue
+            t_h = agg[solve_t_key] / 3600.0
+            mean = agg[key]["mean"].mean(axis=1)
+            lo = agg[key]["lower"].mean(axis=1)
+            hi = agg[key]["upper"].mean(axis=1)
+            controller_label = r"Static $\alpha$=0.01" if controller == "static" else "RL"
+            ax.plot(
+                t_h, mean, color=color, linestyle=CONTROLLER_STYLES[controller]["linestyle"],
+                label=f"{sc.label} ({controller_label})",
+            )
+            ax.fill_between(t_h, lo, hi, color=color, alpha=0.15, linewidth=0)
+    ax.set_xlabel("Time (h)")
+    ax.set_ylabel(ylabel)
+    ax.grid(alpha=0.3, linewidth=0.4)
+    ax.legend(frameon=False, fontsize=6, ncol=2)
+    fig.tight_layout()
+    save_figure(fig, cfg.figures_dir / filename, cfg.formats, cfg.dpi)
+    plt.close(fig)
+
+
+def plot_vsl_usage(results: Results, scenarios: list[ScenarioConfig], cfg: ReportConfig) -> None:
+    """Applied VSL speed limits over time, averaged across controlled segments, static vs RL per scenario."""
+    LOGGER.info("Building figure: VSL usage over time")
+    _plot_control_usage(
+        "v_ctrl", "v_ctrl_solve_t", "Applied VSL limit (km/h)", "vsl_usage", results, scenarios, cfg
+    )
+
+
+def plot_rm_usage(results: Results, scenarios: list[ScenarioConfig], cfg: ReportConfig) -> None:
+    """Applied ramp-metering rate over time, averaged across metered ramps, static vs RL per scenario."""
+    LOGGER.info("Building figure: RM usage over time")
+    _plot_control_usage(
+        "r_applied", "r_applied_solve_t", "Applied RM rate", "rm_usage", results, scenarios, cfg
+    )
+
+
 def _count_for_alpha(counts: dict[str, int], alpha: float) -> int:
     return sum(n for k, n in counts.items() if abs(float(k) - alpha) < 1e-9)
 

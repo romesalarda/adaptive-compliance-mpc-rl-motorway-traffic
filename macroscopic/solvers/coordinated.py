@@ -53,23 +53,11 @@ class MpcCoordinatedSimulation(MpcVSLSimulation):
 
         r_weight = self.use_weight_parameter("r_weight", 1.0)
         temporal_smoothness_weight = self.use_weight_parameter("temporal_smoothness", 0.4)
-        seg4_safety_weight = self.use_weight_parameter("seg4_safety", 1)  # Weight for safety penalty in segment 4
-        queue_threshold = self.use_weight_parameter("queue_threshold", 25)  # Threshold for congestion in segment 4
-        seg_4_idx = self.use_weight_parameter("seg_4_idx", 3)  # Assuming segment 4 is at index 3 (0-based indexing)
 
         temporal_smoothness = temporal_smoothness_weight * cs.sumsqr(cs.diff(cs.horzcat(self.v_ctrl_last, self.v_ctrl), 1, 1) / parameters.v_free)
-        # solid with 40 - 60 as temporal smoothness
         tts_term = cs.sum2(cs.sum1(self.rho * parameters.L * parameters.lanes) + cs.sum1(self.w))
-    
-        congestion_indicator = cs.fmax(0, self.w[1, 0] - queue_threshold)
-        seg4_safety_penalty = seg4_safety_weight * congestion_indicator * cs.sumsqr(self.v_ctrl[seg_4_idx, :] / parameters.v_free)
 
-        # self.MPC.minimize(
-        #     parameters.T * tts_term
-        #     + r_weight * cs.sumsqr(cs.diff(cs.horzcat(self.r_last, self.r)))
-        #     + temporal_smoothness
-        #     + seg4_safety_penalty
-        # )
+        # T was ommitted here, add T in future
 
         self.MPC.minimize(
             tts_term

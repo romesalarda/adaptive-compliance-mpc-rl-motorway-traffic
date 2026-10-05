@@ -88,6 +88,34 @@ def write_table(df: pd.DataFrame, path_no_ext: Path) -> None:
     LOGGER.info(f"Wrote overview table to {path_no_ext}.{{csv,md,tex}}")
 
 
+_CONTROL_METRICS = [
+    ("v_ctrl", "VSL limit (km/h)"),
+    ("r_applied", "RM rate"),
+]
+
+
+def build_control_usage_table(results: Results, scenarios: list[ScenarioConfig], cfg: ReportConfig) -> pd.DataFrame:
+    """One row per scenario x control (VSL/RM): mean/min/max of the applied control, static vs RL."""
+    LOGGER.info("Building VSL/RM control usage table")
+    rows = []
+    for sc in scenarios:
+        for key, display_name in _CONTROL_METRICS:
+            row: dict[str, Any] = {"Scenario": sc.label, "Control": display_name}
+            for controller, prefix in (("static", "Static"), ("rl", "RL")):
+                agg = results[sc.id][controller]
+                if key not in agg:
+                    row[f"{prefix} mean"] = np.nan
+                    row[f"{prefix} min"] = np.nan
+                    row[f"{prefix} max"] = np.nan
+                    continue
+                mean_series = agg[key]["mean"]
+                row[f"{prefix} mean"] = round(float(np.nanmean(mean_series)), 3)
+                row[f"{prefix} min"] = round(float(np.nanmin(mean_series)), 3)
+                row[f"{prefix} max"] = round(float(np.nanmax(mean_series)), 3)
+            rows.append(row)
+    return pd.DataFrame(rows)
+
+
 def build_q_table_frame(
     q_table: dict[tuple, Any],
     state_order: list[tuple[str, ...]],
