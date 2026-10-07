@@ -29,7 +29,7 @@
     "coordinated": {
       "link_class": "FrejoLinkWithVsl",
       "solver_config": { "Np": 7, "Nc": 5, "M": 6, "function_compactness": 2, "solve_interval_steps": 2400},
-      "alpha_compliance": 0.01,
+      "alpha_compliance": 0.05,
       "A": 0.4,
       "E": 1.5,
       "V": 112,

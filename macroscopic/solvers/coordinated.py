@@ -60,7 +60,7 @@ class MpcCoordinatedSimulation(MpcVSLSimulation):
         # T was ommitted here, add T in future
 
         self.MPC.minimize(
-            tts_term
+            self.environment.parameters.T * tts_term
             + temporal_smoothness
             + r_weight * cs.sumsqr(cs.diff(cs.horzcat(self.r_last, self.r)))
             # + seg4_safety_penalty
