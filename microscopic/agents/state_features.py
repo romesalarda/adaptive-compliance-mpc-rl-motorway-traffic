@@ -80,6 +80,7 @@ def feature_from_config(cfg: dict) -> ThresholdFeature:
       - "mean_density": mean of rho over segment_indices
       - "mean_speed":   mean of v over segment_indices
       - "ramp_queue":   sum of w over origin_indices (default [1])
+      - "tts_trend":    sign/magnitude of tts_increase (already computed by the controller for reward)
     """
     source: str = cfg["source"]
     thresholds: list[float] = [float(t) for t in cfg["thresholds"]]
@@ -117,9 +118,18 @@ def feature_from_config(cfg: dict) -> ThresholdFeature:
             ),
         )
 
+    if source == "tts_trend":
+        # relies on 'tts_increase' already being injected into state_data by the RL controller
+        return ThresholdFeature(
+            name=name,
+            thresholds=thresholds,
+            labels=labels,
+            _extract_fn=lambda s: float(s.get("tts_increase", 0.0)),
+        )
+
     raise ValueError(
         f"Unknown state feature source '{source}'. "
-        "Supported: 'mean_density', 'mean_speed', 'ramp_queue'."
+        "Supported: 'mean_density', 'mean_speed', 'ramp_queue', 'tts_trend'."
     )
 
 

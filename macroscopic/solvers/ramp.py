@@ -57,9 +57,11 @@ class MpcRMSimulation(BaseMPCSolver):
             if k % 100 == 0:
                 LOGGER.info(f"step {k} of {self.environment.demands.shape[0]}")
 
-    def solve_single_step(self, rho, v, w, demands_forecast, current_time=None):
+    def solve_single_step(self, rho, v, w, demands_forecast, current_time=None, r_last=None, v_ctrl_last=None):
+        """v_ctrl_last is accepted-but-unused (no VSL action here) to keep a uniform controller call signature."""
 
-        r_last = cs.DM.ones(self.r.size1(), 1) if self._r_last_value is None else self._r_last_value
+        fallback_r_last = cs.DM.ones(self.r.size1(), 1) if self._r_last_value is None else self._r_last_value
+        r_last = self._coerce_last_control(r_last, self.r.size1(), fallback_r_last)
 
         d_hat = demands_forecast
 

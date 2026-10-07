@@ -31,14 +31,14 @@ class BaseParameters:
         "L": 1,  # segment length in km (changed from 1000 to match main.py)
         "lanes": 2,
         # "C": (3800, 1800), # MAX MAINLINE: 3700, MAX RAMP: 1800
-        "C": (4000, 1800), # veh/h, maximum flow capacity per lane for mainline and on-ramp
+        "C": (3800, 1800), # veh/h, maximum flow capacity per lane for mainline and on-ramp
         "tau": 18 / 3600, # 18/3600 # time constant in hours
         "kappa": 40, # veh/km/lane
         "eta": 60, # km^2/hour
         "rho_max": 180, # veh/km/lane
         "delta": 0.0122, 
         "rho_crit": 33.5, # veh/km/lane
-        "v_free": 112, # km/h
+        "v_free": 120, # km/h
         "a": 2.5,
         # initial conditions
         "rho_init": None,

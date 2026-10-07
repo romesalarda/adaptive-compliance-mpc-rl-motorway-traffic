@@ -56,6 +56,11 @@ class BaseSUMOController:
 
     def apply_controls(self, controls: dict, env: MicroEnvironment) -> None:
         """Push computed controls into the environment."""
+        if env.vsl_edge_ids and "v_ctrl" not in controls:
+            LOGGER.warning("[apply_controls] VSL edges configured but no 'v_ctrl' in controls — speed limits left unchanged this cycle.")
+        if env.ramp_tl_map and "r" not in controls:
+            LOGGER.warning("[apply_controls] Ramp TLs configured but no 'r' in controls — metering rate left unchanged this cycle.")
+
         if "v_ctrl" in controls and env.vsl_edge_ids:
             for edge_id, speed_kmh in zip(env.vsl_edge_ids, controls["v_ctrl"]):
                 print(f"[BaseSUMOController] Applying VSL {float(speed_kmh):.1f} km/h to edge {edge_id}")
@@ -110,6 +115,8 @@ class MPCInitialiserMixin:
             w=self.macro_env.parameters.w_init,
             demands_forecast=self._get_demands_forecast(0),
             current_time=0,
+            v_ctrl_last=self._last_controls.get("v_ctrl"),
+            r_last=self._last_controls.get("r"),
         )
 
         end_time = time.perf_counter()

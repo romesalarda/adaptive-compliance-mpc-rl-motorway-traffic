@@ -55,13 +55,43 @@ class AsyncMPCController(MPCInitialiserMixin, BaseSUMOController):
         # Main-thread-only timing state (no lock needed)
         self._last_push_sim: float = float("-inf")
         self._cycle_id: int = 0
+        self._consecutive_dropped_pushes: int = 0
 
         self.async_stats = AsyncMPCStats()
+
+        self._preflight_checks()
 
         self._mpc_thread = threading.Thread(
             target=self._mpc_worker, daemon=True, name="mpc-solver"
         )
         self._mpc_thread.start()
+
+    def _preflight_checks(self) -> None:
+        """Catch solve-timing misalignments early instead of letting them silently skew MPC predictions."""
+        if self.step_length <= 0 or self._solve_interval_s <= 0:
+            raise ValueError(
+                f"Invalid controller timing: step_length={self.step_length}, "
+                f"solve_interval_s={self._solve_interval_s}"
+            )
+        macro_dt_s = float(self.macro_env.parameters.T) * 3600.0
+        macro_steps_per_solve = self._solve_interval_s / macro_dt_s
+        if not np.isclose(macro_steps_per_solve, round(macro_steps_per_solve), atol=1e-6):
+            LOGGER.warning(
+                "[AsyncMPC] solve interval (%.1fs) is not an integer multiple of the macro model's "
+                "time step T=%.1fs (%.3f macro steps) — demand-forecast slicing (_get_demands_forecast) "
+                "will misalign with real simulation time.",
+                self._solve_interval_s, macro_dt_s, macro_steps_per_solve,
+            )
+            return
+        M = getattr(self.solver, "M", None)
+        n_macro_steps = int(round(macro_steps_per_solve))
+        if M and n_macro_steps % M != 0:
+            LOGGER.warning(
+                "[AsyncMPC] solve interval spans %d macro time-step(s) but the solver's control "
+                "spacing M=%d does not divide it evenly — solve cadence is misaligned with the "
+                "MPC's own control-update boundary.",
+                n_macro_steps, M,
+            )
 
     # ------------------------------------------------------------------
     # Background MPC thread
@@ -98,6 +128,8 @@ class AsyncMPCController(MPCInitialiserMixin, BaseSUMOController):
                         w=state["w"],
                         demands_forecast=state["demands_forecast"],
                         current_time=state["current_step"],
+                        v_ctrl_last=state.get("v_ctrl_last"),
+                        r_last=state.get("r_last"),
                     )
                     
             except NotImplementedError:
@@ -194,6 +226,9 @@ class AsyncMPCController(MPCInitialiserMixin, BaseSUMOController):
                 "w": state["w"],
                 "current_step": step,
                 "demands_forecast": self._get_demands_forecast(step),
+                # single source of truth for 'what's actually applied right now' — never read solver-private state
+                "v_ctrl_last": self._last_controls.get("v_ctrl"),
+                "r_last": self._last_controls.get("r"),
                 "_cycle_id": self._cycle_id,
                 "_push_sim_time": sim_time,
                 "_push_wall_time": push_wall,
@@ -202,6 +237,7 @@ class AsyncMPCController(MPCInitialiserMixin, BaseSUMOController):
 
             try:
                 self._state_queue.put_nowait(state_msg)
+                self._consecutive_dropped_pushes = 0
             except queue.Full:
                 # Worker is busy; replace the unconsumed state
                 try:
@@ -215,7 +251,14 @@ class AsyncMPCController(MPCInitialiserMixin, BaseSUMOController):
                     "time_sim": sim_time,
                     "time_wall": push_wall,
                 })
+                self._consecutive_dropped_pushes += 1
                 LOGGER.warning("[AsyncMPC] state queue full at t=%.1fs (cycle %d)", sim_time, self._cycle_id)
+                if self._consecutive_dropped_pushes >= 3:
+                    LOGGER.error(
+                        "[AsyncMPC] %d consecutive solve cycles dropped — solver can't keep up with the "
+                        "%.1fs interval; applied controls are now stale relative to the live plant.",
+                        self._consecutive_dropped_pushes, self._solve_interval_s,
+                    )
 
             self._last_push_sim = sim_time
 

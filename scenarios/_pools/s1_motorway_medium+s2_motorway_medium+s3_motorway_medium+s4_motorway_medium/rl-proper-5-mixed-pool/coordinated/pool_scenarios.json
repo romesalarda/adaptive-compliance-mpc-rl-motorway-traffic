@@ -1,0 +1,25 @@
+{
+  "pool_name": "s1_motorway_medium+s2_motorway_medium+s3_motorway_medium+s4_motorway_medium",
+  "scenarios": [
+    {
+      "scenario": "s1_motorway_medium",
+      "heterogeneity": "medium",
+      "demand_descriptor": "hourly-peak"
+    },
+    {
+      "scenario": "s2_motorway_medium",
+      "heterogeneity": "medium",
+      "demand_descriptor": "dual-peak"
+    },
+    {
+      "scenario": "s3_motorway_medium",
+      "heterogeneity": "medium",
+      "demand_descriptor": "high-ramp"
+    },
+    {
+      "scenario": "s4_motorway_medium",
+      "heterogeneity": "medium",
+      "demand_descriptor": "severe-peak"
+    }
+  ]
+}

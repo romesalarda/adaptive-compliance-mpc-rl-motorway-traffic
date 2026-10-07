@@ -395,6 +395,29 @@ class BaseMPCSolver(BaseSimulation):
         """
         if self.MPC is None:
             raise RuntimeError("MPC solver is not initialized. Call the 'setup' method first.")
+
+    def _coerce_last_control(self, value, expected_len: int, fallback):
+        """
+        Coerce an externally-supplied 'last control' (e.g. from a controller-level source of
+        truth) into a column vector suitable for the MPC parameter. Falls back safely (with a
+        warning) on shape mismatch instead of silently feeding a malformed parameter to the solver.
+
+        Args:
+            value: array-like or None; the externally supplied last-control value.
+            expected_len: int, the number of elements the MPC parameter expects.
+            fallback: value to use when `value` is None or has the wrong shape.
+        """
+        if value is None:
+            return fallback
+        arr = np.asarray(value, dtype=float).flatten()
+        if arr.size != expected_len:
+            LOGGER.warning(
+                "[%s] externally-supplied last-control has %d value(s), expected %d — "
+                "falling back to solver-internal value.",
+                self.__class__.__name__, arr.size, expected_len,
+            )
+            return fallback
+        return cs.DM(arr)
         
     def pre_simulate(self):
         self.check()  # Ensure the solver is properly set up before starting the simulation
@@ -528,7 +551,7 @@ class BaseMPCSolver(BaseSimulation):
 
 class DummyMPCSolver(BaseMPCSolver):
 
-    def solve_single_step(self, rho, v, w, demands_forecast, current_time=None):
+    def solve_single_step(self, rho, v, w, demands_forecast, current_time=None, *args, **kwargs):
         return {
             "r": 1,
         }

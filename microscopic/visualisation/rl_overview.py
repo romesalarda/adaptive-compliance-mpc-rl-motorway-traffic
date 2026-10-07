@@ -157,8 +157,12 @@ class RLOverviewVisualiser:
         return self
 
     @staticmethod
-    def _read_index_runs(experiment_dir: Path, control_type: str) -> list[dict]:
-        """Read index.json and return raw run entries filtered by control_type (unsorted)."""
+    def _read_index_runs(
+        experiment_dir: Path,
+        control_type: str,
+        learning_only: bool = True,
+    ) -> list[dict]:
+        """Read index.json and return training runs for the selected control type."""
         index_path = experiment_dir / "index.json"
         if not index_path.exists():
             raise FileNotFoundError(f"index.json not found: {index_path}")
@@ -166,7 +170,11 @@ class RLOverviewVisualiser:
         with open(index_path, encoding="utf-8") as fh:
             index = json.load(fh)
 
-        return [r for r in index.get("runs", []) if r.get("run_type") == control_type]
+        return [
+            r for r in index.get("runs", [])
+            if r.get("run_type") == control_type
+            and (not learning_only or r.get("learning", True))
+        ]
 
     def _load_runs(self, runs: list[dict]) -> None:
         """Load meta/steps for each run entry and populate instance state."""

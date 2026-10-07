@@ -14,7 +14,7 @@ from macroscopic.logger import LOGGER
 
 
 def _run(scenario: Scenario, control_type: str, visualiser: MacroscopicVisualiser, run_set: RunSet, **kwargs) -> None:
-    env = scenario.build_environment(control_type, **kwargs)
+    env = scenario.build_environment(control_type)
     network = env.network
 
     extra_meta = {
@@ -79,6 +79,7 @@ def _run(scenario: Scenario, control_type: str, visualiser: MacroscopicVisualise
             objective_weights=env.objective_weights,
         )
         solver.setup()
+        solver.environment.parameters.pprint()
         solver.simulate()
         fig = visualiser.plot_coordinated_control(
             results=solver.simulation_results,

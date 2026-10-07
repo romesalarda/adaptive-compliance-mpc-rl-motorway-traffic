@@ -48,9 +48,6 @@ def build_network(parameters: BaseParameters, control_type: str, linkKlass: Link
 
             linkKlass = Link[cs.SX]
 
-    if not issubclass(linkKlass, Link):
-        raise TypeError(f"linkKlass must be a subclass of Link, got {linkKlass}")
-
     if control_type in ("vsl", "coordinated"):
         from macroscopic.simulation.parameters import VslParameters
         assert isinstance(parameters, VslParameters)

@@ -839,20 +839,35 @@ class MicroVisualiser:
                 for i in range(n)
             ]
 
-        seg_names    = list(self.labels[:n_seg]) + ["MEAN (all seg)"]
-        rho_1step    = _seg_rmse_1step(aln["pred_rho_1"], aln["act_rho_1"], n_seg)
-        v_1step      = _seg_rmse_1step(aln["pred_v_1"],   aln["act_v_1"],   n_seg)
-        mean_rho_cyc = f"{float(np.mean(aln['rmse_rho'])):.4f}" if aln["rmse_rho"].size > 0 else "N/A"
-        mean_v_cyc   = f"{float(np.mean(aln['rmse_v'])):.4f}"   if aln["rmse_v"].size  > 0 else "N/A"
-        mean_w_cyc   = f"{float(np.mean(aln['rmse_w'])):.4f}"   if aln["rmse_w"].size  > 0 else "N/A"
-        # Append mean row
-        rho_1step.append(mean_rho_cyc)
-        v_1step.append(mean_v_cyc)
-        # Queue: overall cycle RMSE (not per-segment) — pad with dash for segment rows
-        w_col = ["—"] * n_seg + [mean_w_cyc]
+        def _mean_of_numeric(vals):
+            nums = [float(v) for v in vals if v not in ("N/A", "—")]
+            return f"{np.mean(nums):.4f}" if nums else "N/A"
 
-        row_fill = [["#2c3e50"] + ["#ecf0f1" if i % 2 == 0 else "#ffffff" for i in range(n_seg + 1)]]
-        font_col = [["white"] + ["black"] * (n_seg + 1)]
+        rho_1step = _seg_rmse_1step(aln["pred_rho_1"], aln["act_rho_1"], n_seg)
+        v_1step   = _seg_rmse_1step(aln["pred_v_1"],   aln["act_v_1"],   n_seg)
+
+        # 1-step-ahead mean across segments (matches the per-segment columns above)
+        mean_rho_1step = _mean_of_numeric(rho_1step)
+        mean_v_1step   = _mean_of_numeric(v_1step)
+
+        # Full prediction-horizon mean across cycles (distinct metric — averaged over
+        # every macro step in the horizon, not just the 1-step-ahead prediction)
+        mean_rho_horizon = f"{float(np.mean(aln['rmse_rho'])):.4f}" if aln["rmse_rho"].size > 0 else "N/A"
+        mean_v_horizon   = f"{float(np.mean(aln['rmse_v'])):.4f}"   if aln["rmse_v"].size  > 0 else "N/A"
+        mean_w_horizon   = f"{float(np.mean(aln['rmse_w'])):.4f}"   if aln["rmse_w"].size  > 0 else "N/A"
+
+        seg_names = (
+            list(self.labels[:n_seg])
+            + ["MEAN (1-step, all seg)", "MEAN (full horizon, all cycles)"]
+        )
+        rho_1step.extend([mean_rho_1step, mean_rho_horizon])
+        v_1step.extend([mean_v_1step, mean_v_horizon])
+        # Queue only has a full-horizon per-cycle RMSE (no per-segment 1-step metric)
+        w_col = ["—"] * n_seg + ["—", mean_w_horizon]
+
+        n_rows = n_seg + 2
+        row_fill = [["#2c3e50"] + ["#ecf0f1" if i % 2 == 0 else "#ffffff" for i in range(n_rows)]]
+        font_col = [["white"] + ["black"] * n_rows]
 
         fig.add_trace(go.Table(
             header=dict(
