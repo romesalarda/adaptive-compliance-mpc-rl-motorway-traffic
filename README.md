@@ -339,7 +339,7 @@ These are known defects at the time of writing:
 - **Ignored reward keys**: `window_seconds` in the reward config is read but not used.
 - **Unseeded RL**: Q-learning exploration uses an unseeded random generator, so training runs are not reproducible.
 - **No tests**: the repository has no automated test suite.
-- **Missing inputs**: `micronet/` and `data/` are not in the repository, so microscopic runs and the report need them supplied locally. - an example of a microscopic simulation setup i.e. the SUMO config files are included in scenarios\examples which you can copy and paste into the scenario folder along with network.py and scenario.json. data/ is not required to run the commands but is an output from the runs themselves.
+- **Missing inputs**: `micronet/` and `data/` are not in the repository, so microscopic runs and the report need them supplied locally. An example of a microscopic simulation setup i.e. the SUMO config files are included in scenarios\examples which you can copy and paste into the scenario folder along with network.py and scenario.json. data/ is not required to run the commands but is an output from the runs themselves.
 
 ## License
 
