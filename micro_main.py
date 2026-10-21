@@ -45,11 +45,11 @@ from microscopic.statistics.dump import save_hdf5, parse_tripinfo, parse_collisi
 from microscopic.statistics.async_stats import save_async_stats_hdf5
 from microscopic.statistics.rl_stats import save_rl_descriptor
 from microscopic.visualisation.base import MicroVisualiser
+from scenarios import Scenario, pool_name_for
 
 if TYPE_CHECKING:
     from microscopic.statistics.base import MicroSimulationResults
     from macroscopic.solvers.base import BaseMPCSolver
-    from scenarios import Scenario
 
 # ---- run directory helpers -------------------------------------------------
 
@@ -745,16 +745,13 @@ def main() -> None:
         repeat = args.repeat if not (args.batch or len(args.solver) > 1) else 1
         wait_for_input = args.wait_for_input if not (args.batch or len(args.solver) > 1 or repeat > 1) else False
 
-        override_schedule = ['s1_motorway_medium', 's1_motorway_medium', 's4_motorway_medium', 's4_motorway_medium', 's2_motorway_medium', 's4_motorway_medium', 's4_motorway_medium', 's4_motorway_medium', 's2_motorway_medium', 's1_motorway_medium', 's1_motorway_medium', 's2_motorway_medium', 's2_motorway_medium', 's4_motorway_medium', 's1_motorway_medium', 's4_motorway_medium', 's1_motorway_medium', 's1_motorway_medium', 's1_motorway_medium', 's2_motorway_medium', 's2_motorway_medium', 's4_motorway_medium', 's1_motorway_medium', 's1_motorway_medium', 's4_motorway_medium', 's2_motorway_medium', 's1_motorway_medium', 's4_motorway_medium', 's4_motorway_medium', 's1_motorway_medium', 's2_motorway_medium', 's4_motorway_medium', 's1_motorway_medium', 's4_motorway_medium', 's4_motorway_medium', 's4_motorway_medium', 's1_motorway_medium', 's2_motorway_medium', 's4_motorway_medium', 's2_motorway_medium', 's2_motorway_medium', 's4_motorway_medium', 's4_motorway_medium', 's4_motorway_medium', 's1_motorway_medium', 's2_motorway_medium', 's1_motorway_medium', 's4_motorway_medium', 's1_motorway_medium', 's2_motorway_medium', 's2_motorway_medium', 's1_motorway_medium', 's1_motorway_medium', 's1_motorway_medium', 's4_motorway_medium', 's1_motorway_medium', 's1_motorway_medium', 's2_motorway_medium', 's1_motorway_medium', 's1_motorway_medium', 's2_motorway_medium', 's2_motorway_medium', 's4_motorway_medium', 's2_motorway_medium', 's2_motorway_medium', 's2_motorway_medium', 's1_motorway_medium', 's2_motorway_medium', 's2_motorway_medium', 's1_motorway_medium', 's4_motorway_medium', 's4_motorway_medium', 's4_motorway_medium', 's1_motorway_medium', 's1_motorway_medium', 's4_motorway_medium', 's4_motorway_medium', 's2_motorway_medium', 's1_motorway_medium', 's2_motorway_medium', 's2_motorway_medium', 's2_motorway_medium', 's2_motorway_medium', 's4_motorway_medium', 's2_motorway_medium', 's2_motorway_medium', 's1_motorway_medium', 's4_motorway_medium', 's2_motorway_medium', 's4_motorway_medium', 's4_motorway_medium', 's2_motorway_medium', 's2_motorway_medium', 's2_motorway_medium', 's1_motorway_medium', 's4_motorway_medium', 's1_motorway_medium', 's1_motorway_medium', 's4_motorway_medium', 's2_motorway_medium']
-
         if scenario_pool is not None:
-            from scenarios import pool_name_for
 
             _validate_pool_rl_configs(scenario_pool, args.rl_config_name)
             pool_name = args.pool_name or pool_name_for(scenario_pool)
             
             schedule = _build_scenario_schedule(scenario_pool, repeat, args.seed) # TODO: warning remove this
-            schedule = override_schedule[:repeat]
+            schedule = schedule[:repeat]
 
             print(f"[pool] '{pool_name}' schedule ({repeat} runs): {schedule}")
         else:

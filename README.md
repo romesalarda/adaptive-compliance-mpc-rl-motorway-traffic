@@ -1,8 +1,8 @@
 # Adaptive Compliance Model Predictive Control with Reinforcement learning for Motorway Traffic Control
 
-Model predictive control (MPC) and tabular Q-learning for motorway traffic management. The controllers pick a variable speed limit (VSL), ramp metering (RM), or both (coordinated VSL + RM). The trade-off between travel time and safety is set by `alpha_compliance` in [0, 1]. Each control scheme can run in two settings:
+Model predictive control (MPC) and tabular Q-learning for motorway traffic management. The controllers pick a variable speed limit (VSL), ramp metering (RM), or both (coordinated VSL + RM). Each control scheme can run in two settings:
 
-- **Macroscopic**: an open-loop METANET-style model solved with `sym_metanet` and `casadi`.
+- **Macroscopic**: an open-loop / closed-loop METANET-style model solved with `sym_metanet` and `casadi`.
 - **Microscopic**: closed-loop SUMO simulation, where the MPC runs asynchronously over TraCI and can be driven by a Q-learning agent that picks `alpha_compliance` online.
 
 ## Contents
@@ -217,7 +217,7 @@ python micro_main.py --scenarios s1_motorway_medium,s2_motorway_medium \
     --rl --rl-config-name v2 --seed 1 --no-gui --no-wait --repeat 20
 ```
 
-Pool mode writes a pool descriptor and Q-tables under `scenarios/_pools/<pool-name>/`. **The current code overwrites the stratified schedule with a hardcoded list** (`micro_main.py:748-757`), so `--seed` has no effect and `--repeat N` uses the first N entries of that list. Do not use pool results until this is fixed.
+Pool mode writes a pool descriptor and Q-tables under `scenarios/_pools/<pool-name>/`. 
 
 ## Alpha sweep: `alpha_sweep.py`
 
@@ -333,7 +333,6 @@ Note that `scenarios/*/micro-sim-runs/`, `macro-sim-runs/`, `_pools/`, `data/`, 
 
 These are known defects at the time of writing:
 
-- **Pool schedule override**: `micro_main.py:757` replaces the schedule built by `_build_scenario_schedule` with a hardcoded list. `--seed` has no effect in pool mode.
 - **Unused `--workers`**: parsed but never used.
 - **Batch mode ignores some flags**: `--rl`, `--alpha`, and `--no-wait` are not applied in batch. Batch workers can block on `input()`.
 - **Unsupported RL state source**: the default RL configs for `s1_motorway_medium`, `s2_motorway_medium`, `s3_motorway_medium`, and `s4_motorway_medium` use the `tts_trend` source, which is not implemented. `--rl` with those defaults fails during setup. Use the `v2` configs (`mean_density` + `demand_ratio`) or implement `tts_trend` in `microscopic/agents/state_features.py`.
