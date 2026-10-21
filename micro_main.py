@@ -31,12 +31,20 @@ from pathlib import Path
 
 from typing import TYPE_CHECKING
 
+from macroscopic.solvers import MpcRMSimulation, MpcVSLSimulation, MpcCoordinatedSimulation, DummyMPCSolver
+
+
 from microscopic.controller.rl_async_mpc import RLAsyncMPCController
 from microscopic.statistics.rl_stats import save_rl_stats_hdf5, save_rl_stats_json, update_rl_runs_log
 from microscopic.visualisation.learning import RLVisualiser
 from microscopic.statistics.dump import save_error_report
-
-from macroscopic.solvers import MpcRMSimulation, MpcVSLSimulation, MpcCoordinatedSimulation, DummyMPCSolver
+from microscopic.simulation.base import SimulationConfig, SUMOBaseSimulation
+from microscopic.controller.mpc import SynchronousMPCController
+from microscopic.controller.async_mpc import AsyncMPCController
+from microscopic.statistics.dump import save_hdf5, parse_tripinfo, parse_collision, parse_queue, save_run_metadata, update_micro_index
+from microscopic.statistics.async_stats import save_async_stats_hdf5
+from microscopic.statistics.rl_stats import save_rl_descriptor
+from microscopic.visualisation.base import MicroVisualiser
 
 if TYPE_CHECKING:
     from microscopic.statistics.base import MicroSimulationResults
@@ -280,15 +288,7 @@ def run_single(
     Build and run one closed-loop SUMO-MPC simulation.
     Returns MicroSimulationResults after post-processing.
     """
-    from scenarios import Scenario
-    from microscopic.simulation.base import SimulationConfig, SUMOBaseSimulation
-    from microscopic.controller.mpc import SynchronousMPCController
-    from microscopic.controller.async_mpc import AsyncMPCController
-    from microscopic.statistics.base import MicroSimulationResults
-    from microscopic.statistics.dump import save_hdf5, parse_tripinfo, parse_collision, parse_queue, save_run_metadata, update_micro_index
-    from microscopic.statistics.async_stats import save_async_stats_hdf5
-    from microscopic.statistics.rl_stats import save_rl_descriptor
-    from microscopic.visualisation.base import MicroVisualiser
+    
 
     scenario = Scenario(scenario_name)
     micro_cfg = scenario.micro_config

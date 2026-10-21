@@ -1,4 +1,4 @@
-# MPC-RL Motorways
+# Adaptive Compliance Model Predictive Control with Reinforcement learning for Motorway Traffic Control
 
 Model predictive control (MPC) and tabular Q-learning for motorway traffic management. The controllers pick a variable speed limit (VSL), ramp metering (RM), or both (coordinated VSL + RM). The trade-off between travel time and safety is set by `alpha_compliance` in [0, 1]. Each control scheme can run in two settings:
 
@@ -340,7 +340,7 @@ These are known defects at the time of writing:
 - **Ignored reward keys**: `window_seconds` in the reward config is read but not used.
 - **Unseeded RL**: Q-learning exploration uses an unseeded random generator, so training runs are not reproducible.
 - **No tests**: the repository has no automated test suite.
-- **Missing inputs**: `micronet/` and `data/` are not in the repository, so microscopic runs and the report need them supplied locally.
+- **Missing inputs**: `micronet/` and `data/` are not in the repository, so microscopic runs and the report need them supplied locally. - an example of a microscopic simulation setup i.e. the SUMO config files are included in scenarios\examples which you can copy and paste into the scenario folder along with network.py and scenario.json. data/ is not required to run the commands but is an output from the runs themselves.
 
 ## License
 
