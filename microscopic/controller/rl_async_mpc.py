@@ -2,7 +2,6 @@ from __future__ import annotations
 
 import logging
 import types as _types
-from collections import deque
 from pathlib import Path
 from typing import TYPE_CHECKING, Callable
 
@@ -109,20 +108,13 @@ class RLAsyncMPCController:
         instance._rl_stats = RLEpisodeStats()
 
         instance._rl_prev_state_key = None
-        instance._rl_prev_action_id = None
+        instance._rl_prev_action_idx = None
         instance._rl_prev_alpha = mid_alpha
         instance._rl_step_count = 0
 
-        reward_components = rl_config.get("reward", {}).get("components", {})
-        decision_period_s = solve_interval_steps * step_length
-        instance._rl_tts_window_s = float(
-            reward_components.get("tts", {}).get("window_seconds", 300)
-        )
-        instance._rl_tts_deque = deque()
-        instance._rl_collision_deque = deque()
-        instance._rl_collision_window_s = float(
-            reward_components.get("collisions", {}).get("window_seconds", 300)
-        )
+        # Per-interval accumulators, updated every simulation step and reset at each decision
+        instance._rl_tts_acc = 0.0
+        instance._rl_collision_acc = 0
 
         # Bind RL methods directly onto the instance
         instance.setup_rl = _types.MethodType(_setup_rl, instance)
@@ -158,16 +150,16 @@ def _setup_rl(self) -> None:
     )
 
 
-def _rl_compute_tts(self, state: dict) -> float:
-    """TTS via macro formula: T*sum(rho*L*lanes)+sum(w), consistent with macro objective."""
+def _rl_vehicles_in_system(self, state: dict) -> float:
+    """Vehicles on the mainline plus waiting on ramps (rho [veh/km/lane] * L [km] * lanes + w)."""
     params = self.macro_env.parameters
     rho = np.asarray(state["rho"], dtype=float).flatten()
     w = np.asarray(state["w"], dtype=float).flatten()
-    return float(params.T) * float(np.sum(rho * float(params.L) * float(params.lanes))) + float(np.sum(w))
+    return float(np.sum(rho * float(params.L) * float(params.lanes)) + np.sum(w))
 
 
 def _rl_get_collision_count(self) -> int:
-    """Best-effort collision count via traci at the current simulation step."""
+    """Collisions reported by SUMO for the current step (summing every step matches collision.xml)."""
     try:
         import traci
         if hasattr(traci.simulation, "getCollisions"):
@@ -177,6 +169,13 @@ def _rl_get_collision_count(self) -> int:
     except Exception:
         pass
     return 0
+
+
+def _rl_demand_ratio(self, step: int) -> float:
+    """Forecast total origin demand over the MPC horizon relative to mainline capacity."""
+    forecast = self._get_demands_forecast(step)
+    capacity = float(np.atleast_1d(self.macro_env.parameters.C)[0])
+    return float(np.mean(np.sum(forecast, axis=1)) / capacity)
 
 
 def _rl_on_step(self, step: int, env: "MicroEnvironment", state: dict) -> None:
@@ -191,27 +190,23 @@ def _rl_on_step(self, step: int, env: "MicroEnvironment", state: dict) -> None:
     '''
     sim_time = step * self.step_length
 
+    # Integrate TTS and count collisions every step so the reward reflects the whole interval
+    self._rl_tts_acc += _rl_vehicles_in_system(self, state) * self.step_length / 3600.0
+    self._rl_collision_acc += _rl_get_collision_count(self)
+
     if sim_time - self._last_push_sim >= self._solve_interval_s:
         # Collect RL metrics
-        current_tts = _rl_compute_tts(self, state)
-        self._rl_tts_deque.append((sim_time, current_tts))
-        prune_before = sim_time - self._rl_tts_window_s
-        while len(self._rl_tts_deque) > 1 and self._rl_tts_deque[0][0] < prune_before:
-            self._rl_tts_deque.popleft()
-        tts_increase = (
-            self._rl_tts_deque[-1][1] - self._rl_tts_deque[0][1]
-            if len(self._rl_tts_deque) >= 2
-            else 0.0
-        )
+        tts_interval = self._rl_tts_acc
+        collisions_interval = self._rl_collision_acc
+        self._rl_tts_acc = 0.0
+        self._rl_collision_acc = 0
 
-        collision_now = _rl_get_collision_count(self)
-        self._rl_collision_deque.append((sim_time, collision_now))
-        prune_before = sim_time - self._rl_collision_window_s
-        while self._rl_collision_deque and self._rl_collision_deque[0][0] < prune_before:
-            self._rl_collision_deque.popleft()
-        collisions_in_window = int(sum(c for _, c in self._rl_collision_deque))
-
-        rl_state = {**state, "tts_increase": tts_increase, "collisions_in_window": collisions_in_window}
+        rl_state = {
+            **state,
+            "tts_interval": tts_interval,
+            "collisions_interval": collisions_interval,
+            "demand_ratio": _rl_demand_ratio(self, step),
+        }
 
         state_key = self._rl_agent.state_discretiser.key(rl_state)
         state_label = self._rl_agent.state_discretiser.label(rl_state)
@@ -230,7 +225,7 @@ def _rl_on_step(self, step: int, env: "MicroEnvironment", state: dict) -> None:
         # Action selection
         if self._rl_learning:
             action_idx, alpha = self._rl_agent.select_action(rl_state)
-            was_exploration = bool(np.random.random() < epsilon_before)
+            was_exploration = self._rl_agent.last_was_exploration
         else:
             action_idx, alpha = self._rl_agent.select_best_action(rl_state)
             was_exploration = False
@@ -267,8 +262,8 @@ def _rl_on_step(self, step: int, env: "MicroEnvironment", state: dict) -> None:
             epsilon=epsilon_before,
             was_exploration=was_exploration,
             q_values_at_state=q_values,
-            tts_raw=current_tts,
-            collisions_raw=collision_now,
+            tts_raw=tts_interval,
+            collisions_raw=collisions_interval,
         ))
 
         self._rl_prev_state_key = state_key
@@ -330,12 +325,6 @@ def _rl_print_pre_run_status(self) -> None:
 # ---------------------------------------------------------------------------
 # Helpers
 # ---------------------------------------------------------------------------
-
-def _max_reward_window(rl_config: dict) -> float:
-    components = rl_config.get("reward", {}).get("components", {})
-    windows = [float(v.get("window_seconds", 300)) for v in components.values()]
-    return max(windows) if windows else 300.0
-
 
 def _validate_solver_pool_timing(self) -> None:
     """Warn if any pooled solver's Np/Nc/M/solve_interval_steps disagree — they must share one MPC timing scheme."""

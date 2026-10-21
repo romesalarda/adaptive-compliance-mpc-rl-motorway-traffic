@@ -9,6 +9,7 @@ micro-sim-runs/
 .venv/
 .env
 venv/
+_pools/
 data/
 micronet/
 env/

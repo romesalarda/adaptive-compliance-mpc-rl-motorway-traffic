@@ -76,6 +76,7 @@ class QLearningAgent:
             lambda: np.zeros(self.n_actions, dtype=np.float64)
         )
 
+        self.last_was_exploration: bool = False
         self._episode_id: str = uuid.uuid4().hex
         self._total_steps: int = 0
         self._total_episodes: int = 0
@@ -87,7 +88,8 @@ class QLearningAgent:
     def select_action(self, state_data: dict) -> tuple[int, float]:
         """Epsilon-greedy: returns (action_idx, alpha_value)."""
         state_key = self.state_discretiser.key(state_data)
-        if np.random.random() < self.epsilon:
+        self.last_was_exploration = bool(np.random.random() < self.epsilon)
+        if self.last_was_exploration:
             idx = int(np.random.randint(0, self.n_actions))
         else:
             idx = int(np.argmax(self.q_table[state_key]))
@@ -96,12 +98,9 @@ class QLearningAgent:
     def select_best_action(self, state_data: dict) -> tuple[int, float]:
         """Greedy — no exploration."""
         state_key = self.state_discretiser.key(state_data)
+        self.last_was_exploration = False
         idx = int(np.argmax(self.q_table[state_key]))
         return idx, self.action_values[idx]
-
-    def was_exploration(self, epsilon_at_selection: float) -> bool:
-        """Reconstruct whether the last selection was exploratory (for logging)."""
-        return np.random.random() < epsilon_at_selection  # approximate; log at selection time
 
     # ------------------------------------------------------------------
     # Q-table update

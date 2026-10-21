@@ -1,0 +1,456 @@
+[32mINFO    [0m [34m[root][0m Setting up the macroscopic solver...[0m
+[32mINFO    [0m [34m[root][0m Starting the setup process for the macroscopic solver...[0m
+[32mINFO    [0m [34m[root][0m Pre-initializing MPC with initial conditions: {<O1: MainstreamOrigin>: {'v_ctrl': inf}}[0m
+[32mINFO    [0m [34m[root][0m 
+1. Pre-initialization of the macroscopic solver completed successfully. \u2713[0m
+[32mINFO    [0m [34m[root][0m Proceeding with the initialization of the MPC solver and related components...[0m
+[32mINFO    [0m [34m[root][0m MPC solver initialization completed successfully. \u2713[0m
+[32mINFO    [0m [34m[root][0m 
+2. Proceeding with the initialization of base states, control states, constraints, disturbances, objective function, non-linear dynamics, and solver...[0m
+[32mINFO    [0m [34m[root][0m Base states initialization completed successfully. \u2713[0m
+[32mINFO    [0m [34m[root][0m 
+3. Proceeding with the initialization of control states...[0m
+[32mINFO    [0m [34m[root][0m Control states initialization completed successfully. \u2713[0m
+[32mINFO    [0m [34m[root][0m 
+4. Proceeding with the initialization of constraints...[0m
+[32mINFO    [0m [34m[root][0m Constraints initialization completed successfully. \u2713[0m
+[32mINFO    [0m [34m[root][0m 
+5. Proceeding with the initialization of disturbances...[0m
+[32mINFO    [0m [34m[root][0m Disturbances initialization completed successfully. \u2713[0m
+[32mINFO    [0m [34m[root][0m 
+6. Proceeding with the initialization of the objective function...[0m
+[32mINFO    [0m [34m[root][0m Objective function initialization completed successfully. \u2713[0m
+[32mINFO    [0m [34m[root][0m 
+7. Proceeding with the initialization of non-linear dynamics...[0m
+[32mINFO    [0m [34m[root][0m Network element 'L1' has 1 actions: {'v_ctrl': SX([v_ctrl_L1_0, v_ctrl_L1_1, v_ctrl_L1_2, v_ctrl_L1_3])}[0m
+[32mINFO    [0m [34m[root][0m Network element 'O1' has 1 actions: {'v_ctrl': inf}[0m
+[32mINFO    [0m [34m[root][0m Network element 'O2' has 1 actions: {'r': SX(r_O2)}[0m
+[32mINFO    [0m [34m[root][0m Non-linear dynamics initialization completed successfully. \u2713[0m
+[32mINFO    [0m [34m[root][0m 
+8. Proceeding with the initialization of the solver...[0m
+[32mINFO    [0m [34m[root][0m Solver initialization completed successfully. \u2713[0m
+[32mINFO    [0m [34m[root][0m All components of the macroscopic solver have been initialized successfully. \u2713[0m
+[32mINFO    [0m [34m[root][0m Post-initialization of the macroscopic solver completed successfully. \u2713[0m
+[32mINFO    [0m [34m[root][0m Macroscopic solver setup completed successfully. \u2713 Solver ID: MpcCoordinatedSimulation-ca12282b-d315-4698-a353-3131068a14e8[0m
+[32mINFO    [0m [34m[root][0m 
+Starting the simulation process...[0m
+[32mINFO    [0m [34m[root][0m Solver setup verified. Proceeding with pre-simulation steps...[0m
+[32mINFO    [0m [34m[root][0m Pre-simulation steps completed successfully. \u2713[0m
+[32mINFO    [0m [34m[root][0m Proceeding with the simulation of traffic flow dynamics over time...[0m
+[32mINFO    [0m [34m[root][0m Network element 'L1' has 1 actions: {'v_ctrl': SX([v_ctrl_L1_0, v_ctrl_L1_1, v_ctrl_L1_2, v_ctrl_L1_3])}[0m
+[32mINFO    [0m [34m[root][0m Network element 'O1' has 1 actions: {'v_ctrl': inf}[0m
+[32mINFO    [0m [34m[root][0m Network element 'O2' has 1 actions: {'r': SX(r_O2)}[0m
+CasADi - 2026-10-07 21:53:59 WARNING("solver_ipopt_Nlp0:nlp_jac_g failed: NaN detected for output jac_g_x, at nonzero index 2744 (row 20, col 602).") [.../casadi/core/oracle_function.cpp:408]
+CasADi - 2026-10-07 21:53:59 WARNING("solver_ipopt_Nlp0:nlp_jac_g failed: NaN detected for output jac_g_x, at nonzero index 2744 (row 20, col 602).") [.../casadi/core/oracle_function.cpp:408]
+[32mINFO    [0m [34m[root][0m step 0 of 900[0m
+[32mINFO    [0m [34m[root][0m step 100 of 900[0m
+[32mINFO    [0m [34m[root][0m step 200 of 900[0m
+[32mINFO    [0m [34m[root][0m step 300 of 900[0m
+[32mINFO    [0m [34m[root][0m step 400 of 900[0m
+[32mINFO    [0m [34m[root][0m step 500 of 900[0m
+[32mINFO    [0m [34m[root][0m step 600 of 900[0m
+[32mINFO    [0m [34m[root][0m step 700 of 900[0m
+[32mINFO    [0m [34m[root][0m step 800 of 900[0m
+[32mINFO    [0m [34m[root][0m Simulation of traffic flow dynamics completed successfully. \u2713[0m
+[32mINFO    [0m [34m[root][0m Proceeding with post-simulation steps...[0m
+[32mINFO    [0m [34m[root][0m Post-simulation steps completed successfully. \u2713[0m
+[32mINFO    [0m [34m[root][0m Simulation completed in 61.13 seconds.[0m
+[32mINFO    [0m [34m[root][0m Setting up the macroscopic solver...[0m
+[32mINFO    [0m [34m[root][0m Starting the setup process for the macroscopic solver...[0m
+[32mINFO    [0m [34m[root][0m Pre-initializing MPC with initial conditions: {<O1: MainstreamOrigin>: {'v_ctrl': inf}}[0m
+[32mINFO    [0m [34m[root][0m 
+1. Pre-initialization of the macroscopic solver completed successfully. \u2713[0m
+[32mINFO    [0m [34m[root][0m Proceeding with the initialization of the MPC solver and related components...[0m
+[32mINFO    [0m [34m[root][0m MPC solver initialization completed successfully. \u2713[0m
+[32mINFO    [0m [34m[root][0m 
+2. Proceeding with the initialization of base states, control states, constraints, disturbances, objective function, non-linear dynamics, and solver...[0m
+[32mINFO    [0m [34m[root][0m Base states initialization completed successfully. \u2713[0m
+[32mINFO    [0m [34m[root][0m 
+3. Proceeding with the initialization of control states...[0m
+[32mINFO    [0m [34m[root][0m Control states initialization completed successfully. \u2713[0m
+[32mINFO    [0m [34m[root][0m 
+4. Proceeding with the initialization of constraints...[0m
+[32mINFO    [0m [34m[root][0m Constraints initialization completed successfully. \u2713[0m
+[32mINFO    [0m [34m[root][0m 
+5. Proceeding with the initialization of disturbances...[0m
+[32mINFO    [0m [34m[root][0m Disturbances initialization completed successfully. \u2713[0m
+[32mINFO    [0m [34m[root][0m 
+6. Proceeding with the initialization of the objective function...[0m
+[32mINFO    [0m [34m[root][0m Objective function initialization completed successfully. \u2713[0m
+[32mINFO    [0m [34m[root][0m 
+7. Proceeding with the initialization of non-linear dynamics...[0m
+[32mINFO    [0m [34m[root][0m Network element 'L1' has 1 actions: {'v_ctrl': SX([v_ctrl_L1_0, v_ctrl_L1_1, v_ctrl_L1_2, v_ctrl_L1_3])}[0m
+[32mINFO    [0m [34m[root][0m Network element 'O1' has 1 actions: {'v_ctrl': inf}[0m
+[32mINFO    [0m [34m[root][0m Network element 'O2' has 1 actions: {'r': SX(r_O2)}[0m
+[32mINFO    [0m [34m[root][0m Non-linear dynamics initialization completed successfully. \u2713[0m
+[32mINFO    [0m [34m[root][0m 
+8. Proceeding with the initialization of the solver...[0m
+[32mINFO    [0m [34m[root][0m Solver initialization completed successfully. \u2713[0m
+[32mINFO    [0m [34m[root][0m All components of the macroscopic solver have been initialized successfully. \u2713[0m
+[32mINFO    [0m [34m[root][0m Post-initialization of the macroscopic solver completed successfully. \u2713[0m
+[32mINFO    [0m [34m[root][0m Macroscopic solver setup completed successfully. \u2713 Solver ID: MpcCoordinatedSimulation-70bd5fa4-d223-46a5-b3d3-50046b111da8[0m
+[32mINFO    [0m [34m[root][0m 
+Starting the simulation process...[0m
+[32mINFO    [0m [34m[root][0m Solver setup verified. Proceeding with pre-simulation steps...[0m
+[32mINFO    [0m [34m[root][0m Pre-simulation steps completed successfully. \u2713[0m
+[32mINFO    [0m [34m[root][0m Proceeding with the simulation of traffic flow dynamics over time...[0m
+[32mINFO    [0m [34m[root][0m Network element 'L1' has 1 actions: {'v_ctrl': SX([v_ctrl_L1_0, v_ctrl_L1_1, v_ctrl_L1_2, v_ctrl_L1_3])}[0m
+[32mINFO    [0m [34m[root][0m Network element 'O1' has 1 actions: {'v_ctrl': inf}[0m
+[32mINFO    [0m [34m[root][0m Network element 'O2' has 1 actions: {'r': SX(r_O2)}[0m
+CasADi - 2026-10-07 21:55:00 WARNING("solver_ipopt_Nlp1:nlp_jac_g failed: NaN detected for output jac_g_x, at nonzero index 2744 (row 20, col 602).") [.../casadi/core/oracle_function.cpp:408]
+CasADi - 2026-10-07 21:55:00 WARNING("solver_ipopt_Nlp1:nlp_jac_g failed: NaN detected for output jac_g_x, at nonzero index 2744 (row 20, col 602).") [.../casadi/core/oracle_function.cpp:408]
+[32mINFO    [0m [34m[root][0m step 0 of 900[0m
+[32mINFO    [0m [34m[root][0m step 100 of 900[0m
+[32mINFO    [0m [34m[root][0m step 200 of 900[0m
+[32mINFO    [0m [34m[root][0m step 300 of 900[0m
+[32mINFO    [0m [34m[root][0m step 400 of 900[0m
+[32mINFO    [0m [34m[root][0m step 500 of 900[0m
+[32mINFO    [0m [34m[root][0m step 600 of 900[0m
+[32mINFO    [0m [34m[root][0m step 700 of 900[0m
+[32mINFO    [0m [34m[root][0m step 800 of 900[0m
+[32mINFO    [0m [34m[root][0m Simulation of traffic flow dynamics completed successfully. \u2713[0m
+[32mINFO    [0m [34m[root][0m Proceeding with post-simulation steps...[0m
+[32mINFO    [0m [34m[root][0m Post-simulation steps completed successfully. \u2713[0m
+[32mINFO    [0m [34m[root][0m Simulation completed in 64.49 seconds.[0m
+[32mINFO    [0m [34m[root][0m Setting up the macroscopic solver...[0m
+[32mINFO    [0m [34m[root][0m Starting the setup process for the macroscopic solver...[0m
+[32mINFO    [0m [34m[root][0m Pre-initializing MPC with initial conditions: {<O1: MainstreamOrigin>: {'v_ctrl': inf}}[0m
+[32mINFO    [0m [34m[root][0m 
+1. Pre-initialization of the macroscopic solver completed successfully. \u2713[0m
+[32mINFO    [0m [34m[root][0m Proceeding with the initialization of the MPC solver and related components...[0m
+[32mINFO    [0m [34m[root][0m MPC solver initialization completed successfully. \u2713[0m
+[32mINFO    [0m [34m[root][0m 
+2. Proceeding with the initialization of base states, control states, constraints, disturbances, objective function, non-linear dynamics, and solver...[0m
+[32mINFO    [0m [34m[root][0m Base states initialization completed successfully. \u2713[0m
+[32mINFO    [0m [34m[root][0m 
+3. Proceeding with the initialization of control states...[0m
+[32mINFO    [0m [34m[root][0m Control states initialization completed successfully. \u2713[0m
+[32mINFO    [0m [34m[root][0m 
+4. Proceeding with the initialization of constraints...[0m
+[32mINFO    [0m [34m[root][0m Constraints initialization completed successfully. \u2713[0m
+[32mINFO    [0m [34m[root][0m 
+5. Proceeding with the initialization of disturbances...[0m
+[32mINFO    [0m [34m[root][0m Disturbances initialization completed successfully. \u2713[0m
+[32mINFO    [0m [34m[root][0m 
+6. Proceeding with the initialization of the objective function...[0m
+[32mINFO    [0m [34m[root][0m Objective function initialization completed successfully. \u2713[0m
+[32mINFO    [0m [34m[root][0m 
+7. Proceeding with the initialization of non-linear dynamics...[0m
+[32mINFO    [0m [34m[root][0m Network element 'L1' has 1 actions: {'v_ctrl': SX([v_ctrl_L1_0, v_ctrl_L1_1, v_ctrl_L1_2, v_ctrl_L1_3])}[0m
+[32mINFO    [0m [34m[root][0m Network element 'O1' has 1 actions: {'v_ctrl': inf}[0m
+[32mINFO    [0m [34m[root][0m Network element 'O2' has 1 actions: {'r': SX(r_O2)}[0m
+[32mINFO    [0m [34m[root][0m Non-linear dynamics initialization completed successfully. \u2713[0m
+[32mINFO    [0m [34m[root][0m 
+8. Proceeding with the initialization of the solver...[0m
+[32mINFO    [0m [34m[root][0m Solver initialization completed successfully. \u2713[0m
+[32mINFO    [0m [34m[root][0m All components of the macroscopic solver have been initialized successfully. \u2713[0m
+[32mINFO    [0m [34m[root][0m Post-initialization of the macroscopic solver completed successfully. \u2713[0m
+[32mINFO    [0m [34m[root][0m Macroscopic solver setup completed successfully. \u2713 Solver ID: MpcCoordinatedSimulation-0dd6c269-51a9-42be-8b47-3cf58749a6f7[0m
+[32mINFO    [0m [34m[root][0m 
+Starting the simulation process...[0m
+[32mINFO    [0m [34m[root][0m Solver setup verified. Proceeding with pre-simulation steps...[0m
+[32mINFO    [0m [34m[root][0m Pre-simulation steps completed successfully. \u2713[0m
+[32mINFO    [0m [34m[root][0m Proceeding with the simulation of traffic flow dynamics over time...[0m
+[32mINFO    [0m [34m[root][0m Network element 'L1' has 1 actions: {'v_ctrl': SX([v_ctrl_L1_0, v_ctrl_L1_1, v_ctrl_L1_2, v_ctrl_L1_3])}[0m
+[32mINFO    [0m [34m[root][0m Network element 'O1' has 1 actions: {'v_ctrl': inf}[0m
+[32mINFO    [0m [34m[root][0m Network element 'O2' has 1 actions: {'r': SX(r_O2)}[0m
+CasADi - 2026-10-07 21:56:05 WARNING("solver_ipopt_Nlp2:nlp_jac_g failed: NaN detected for output jac_g_x, at nonzero index 2744 (row 20, col 602).") [.../casadi/core/oracle_function.cpp:408]
+CasADi - 2026-10-07 21:56:05 WARNING("solver_ipopt_Nlp2:nlp_jac_g failed: NaN detected for output jac_g_x, at nonzero index 2744 (row 20, col 602).") [.../casadi/core/oracle_function.cpp:408]
+[32mINFO    [0m [34m[root][0m step 0 of 900[0m
+[32mINFO    [0m [34m[root][0m step 100 of 900[0m
+[32mINFO    [0m [34m[root][0m step 200 of 900[0m
+[32mINFO    [0m [34m[root][0m step 300 of 900[0m
+[32mINFO    [0m [34m[root][0m step 400 of 900[0m
+[32mINFO    [0m [34m[root][0m step 500 of 900[0m
+[32mINFO    [0m [34m[root][0m step 600 of 900[0m
+[32mINFO    [0m [34m[root][0m step 700 of 900[0m
+[32mINFO    [0m [34m[root][0m step 800 of 900[0m
+[32mINFO    [0m [34m[root][0m Simulation of traffic flow dynamics completed successfully. \u2713[0m
+[32mINFO    [0m [34m[root][0m Proceeding with post-simulation steps...[0m
+[32mINFO    [0m [34m[root][0m Post-simulation steps completed successfully. \u2713[0m
+[32mINFO    [0m [34m[root][0m Simulation completed in 64.76 seconds.[0m
+[32mINFO    [0m [34m[root][0m Setting up the macroscopic solver...[0m
+[32mINFO    [0m [34m[root][0m Starting the setup process for the macroscopic solver...[0m
+[32mINFO    [0m [34m[root][0m Pre-initializing MPC with initial conditions: {<O1: MainstreamOrigin>: {'v_ctrl': inf}}[0m
+[32mINFO    [0m [34m[root][0m 
+1. Pre-initialization of the macroscopic solver completed successfully. \u2713[0m
+[32mINFO    [0m [34m[root][0m Proceeding with the initialization of the MPC solver and related components...[0m
+[32mINFO    [0m [34m[root][0m MPC solver initialization completed successfully. \u2713[0m
+[32mINFO    [0m [34m[root][0m 
+2. Proceeding with the initialization of base states, control states, constraints, disturbances, objective function, non-linear dynamics, and solver...[0m
+[32mINFO    [0m [34m[root][0m Base states initialization completed successfully. \u2713[0m
+[32mINFO    [0m [34m[root][0m 
+3. Proceeding with the initialization of control states...[0m
+[32mINFO    [0m [34m[root][0m Control states initialization completed successfully. \u2713[0m
+[32mINFO    [0m [34m[root][0m 
+4. Proceeding with the initialization of constraints...[0m
+[32mINFO    [0m [34m[root][0m Constraints initialization completed successfully. \u2713[0m
+[32mINFO    [0m [34m[root][0m 
+5. Proceeding with the initialization of disturbances...[0m
+[32mINFO    [0m [34m[root][0m Disturbances initialization completed successfully. \u2713[0m
+[32mINFO    [0m [34m[root][0m 
+6. Proceeding with the initialization of the objective function...[0m
+[32mINFO    [0m [34m[root][0m Objective function initialization completed successfully. \u2713[0m
+[32mINFO    [0m [34m[root][0m 
+7. Proceeding with the initialization of non-linear dynamics...[0m
+[32mINFO    [0m [34m[root][0m Network element 'L1' has 1 actions: {'v_ctrl': SX([v_ctrl_L1_0, v_ctrl_L1_1, v_ctrl_L1_2, v_ctrl_L1_3])}[0m
+[32mINFO    [0m [34m[root][0m Network element 'O1' has 1 actions: {'v_ctrl': inf}[0m
+[32mINFO    [0m [34m[root][0m Network element 'O2' has 1 actions: {'r': SX(r_O2)}[0m
+[32mINFO    [0m [34m[root][0m Non-linear dynamics initialization completed successfully. \u2713[0m
+[32mINFO    [0m [34m[root][0m 
+8. Proceeding with the initialization of the solver...[0m
+[32mINFO    [0m [34m[root][0m Solver initialization completed successfully. \u2713[0m
+[32mINFO    [0m [34m[root][0m All components of the macroscopic solver have been initialized successfully. \u2713[0m
+[32mINFO    [0m [34m[root][0m Post-initialization of the macroscopic solver completed successfully. \u2713[0m
+[32mINFO    [0m [34m[root][0m Macroscopic solver setup completed successfully. \u2713 Solver ID: MpcCoordinatedSimulation-34447765-dfb6-456c-854f-ab499af74067[0m
+[32mINFO    [0m [34m[root][0m 
+Starting the simulation process...[0m
+[32mINFO    [0m [34m[root][0m Solver setup verified. Proceeding with pre-simulation steps...[0m
+[32mINFO    [0m [34m[root][0m Pre-simulation steps completed successfully. \u2713[0m
+[32mINFO    [0m [34m[root][0m Proceeding with the simulation of traffic flow dynamics over time...[0m
+[32mINFO    [0m [34m[root][0m Network element 'L1' has 1 actions: {'v_ctrl': SX([v_ctrl_L1_0, v_ctrl_L1_1, v_ctrl_L1_2, v_ctrl_L1_3])}[0m
+[32mINFO    [0m [34m[root][0m Network element 'O1' has 1 actions: {'v_ctrl': inf}[0m
+[32mINFO    [0m [34m[root][0m Network element 'O2' has 1 actions: {'r': SX(r_O2)}[0m
+CasADi - 2026-10-07 21:57:10 WARNING("solver_ipopt_Nlp3:nlp_jac_g failed: NaN detected for output jac_g_x, at nonzero index 2744 (row 20, col 602).") [.../casadi/core/oracle_function.cpp:408]
+CasADi - 2026-10-07 21:57:10 WARNING("solver_ipopt_Nlp3:nlp_jac_g failed: NaN detected for output jac_g_x, at nonzero index 2744 (row 20, col 602).") [.../casadi/core/oracle_function.cpp:408]
+[32mINFO    [0m [34m[root][0m step 0 of 900[0m
+[32mINFO    [0m [34m[root][0m step 100 of 900[0m
+[32mINFO    [0m [34m[root][0m step 200 of 900[0m
+[32mINFO    [0m [34m[root][0m step 300 of 900[0m
+[32mINFO    [0m [34m[root][0m step 400 of 900[0m
+[32mINFO    [0m [34m[root][0m step 500 of 900[0m
+[32mINFO    [0m [34m[root][0m step 600 of 900[0m
+[32mINFO    [0m [34m[root][0m step 700 of 900[0m
+[32mINFO    [0m [34m[root][0m step 800 of 900[0m
+[32mINFO    [0m [34m[root][0m Simulation of traffic flow dynamics completed successfully. \u2713[0m
+[32mINFO    [0m [34m[root][0m Proceeding with post-simulation steps...[0m
+[32mINFO    [0m [34m[root][0m Post-simulation steps completed successfully. \u2713[0m
+[32mINFO    [0m [34m[root][0m Simulation completed in 60.79 seconds.[0m
+[32mINFO    [0m [34m[root][0m Setting up the macroscopic solver...[0m
+[32mINFO    [0m [34m[root][0m Starting the setup process for the macroscopic solver...[0m
+[32mINFO    [0m [34m[root][0m Pre-initializing MPC with initial conditions: {<O1: MainstreamOrigin>: {'v_ctrl': inf}}[0m
+[32mINFO    [0m [34m[root][0m 
+1. Pre-initialization of the macroscopic solver completed successfully. \u2713[0m
+[32mINFO    [0m [34m[root][0m Proceeding with the initialization of the MPC solver and related components...[0m
+[32mINFO    [0m [34m[root][0m MPC solver initialization completed successfully. \u2713[0m
+[32mINFO    [0m [34m[root][0m 
+2. Proceeding with the initialization of base states, control states, constraints, disturbances, objective function, non-linear dynamics, and solver...[0m
+[32mINFO    [0m [34m[root][0m Base states initialization completed successfully. \u2713[0m
+[32mINFO    [0m [34m[root][0m 
+3. Proceeding with the initialization of control states...[0m
+[32mINFO    [0m [34m[root][0m Control states initialization completed successfully. \u2713[0m
+[32mINFO    [0m [34m[root][0m 
+4. Proceeding with the initialization of constraints...[0m
+[32mINFO    [0m [34m[root][0m Constraints initialization completed successfully. \u2713[0m
+[32mINFO    [0m [34m[root][0m 
+5. Proceeding with the initialization of disturbances...[0m
+[32mINFO    [0m [34m[root][0m Disturbances initialization completed successfully. \u2713[0m
+[32mINFO    [0m [34m[root][0m 
+6. Proceeding with the initialization of the objective function...[0m
+[32mINFO    [0m [34m[root][0m Objective function initialization completed successfully. \u2713[0m
+[32mINFO    [0m [34m[root][0m 
+7. Proceeding with the initialization of non-linear dynamics...[0m
+[32mINFO    [0m [34m[root][0m Network element 'L1' has 1 actions: {'v_ctrl': SX([v_ctrl_L1_0, v_ctrl_L1_1, v_ctrl_L1_2, v_ctrl_L1_3])}[0m
+[32mINFO    [0m [34m[root][0m Network element 'O1' has 1 actions: {'v_ctrl': inf}[0m
+[32mINFO    [0m [34m[root][0m Network element 'O2' has 1 actions: {'r': SX(r_O2)}[0m
+[32mINFO    [0m [34m[root][0m Non-linear dynamics initialization completed successfully. \u2713[0m
+[32mINFO    [0m [34m[root][0m 
+8. Proceeding with the initialization of the solver...[0m
+[32mINFO    [0m [34m[root][0m Solver initialization completed successfully. \u2713[0m
+[32mINFO    [0m [34m[root][0m All components of the macroscopic solver have been initialized successfully. \u2713[0m
+[32mINFO    [0m [34m[root][0m Post-initialization of the macroscopic solver completed successfully. \u2713[0m
+[32mINFO    [0m [34m[root][0m Macroscopic solver setup completed successfully. \u2713 Solver ID: MpcCoordinatedSimulation-c3158960-2968-4654-8ae2-491f2edb6118[0m
+[32mINFO    [0m [34m[root][0m 
+Starting the simulation process...[0m
+[32mINFO    [0m [34m[root][0m Solver setup verified. Proceeding with pre-simulation steps...[0m
+[32mINFO    [0m [34m[root][0m Pre-simulation steps completed successfully. \u2713[0m
+[32mINFO    [0m [34m[root][0m Proceeding with the simulation of traffic flow dynamics over time...[0m
+[32mINFO    [0m [34m[root][0m Network element 'L1' has 1 actions: {'v_ctrl': SX([v_ctrl_L1_0, v_ctrl_L1_1, v_ctrl_L1_2, v_ctrl_L1_3])}[0m
+[32mINFO    [0m [34m[root][0m Network element 'O1' has 1 actions: {'v_ctrl': inf}[0m
+[32mINFO    [0m [34m[root][0m Network element 'O2' has 1 actions: {'r': SX(r_O2)}[0m
+CasADi - 2026-10-07 21:58:12 WARNING("solver_ipopt_Nlp4:nlp_jac_g failed: NaN detected for output jac_g_x, at nonzero index 2744 (row 20, col 602).") [.../casadi/core/oracle_function.cpp:408]
+CasADi - 2026-10-07 21:58:12 WARNING("solver_ipopt_Nlp4:nlp_jac_g failed: NaN detected for output jac_g_x, at nonzero index 2744 (row 20, col 602).") [.../casadi/core/oracle_function.cpp:408]
+[32mINFO    [0m [34m[root][0m step 0 of 900[0m
+[32mINFO    [0m [34m[root][0m step 100 of 900[0m
+[32mINFO    [0m [34m[root][0m step 200 of 900[0m
+[32mINFO    [0m [34m[root][0m step 300 of 900[0m
+[32mINFO    [0m [34m[root][0m step 400 of 900[0m
+[32mINFO    [0m [34m[root][0m step 500 of 900[0m
+[32mINFO    [0m [34m[root][0m step 600 of 900[0m
+[32mINFO    [0m [34m[root][0m step 700 of 900[0m
+[32mINFO    [0m [34m[root][0m step 800 of 900[0m
+[32mINFO    [0m [34m[root][0m Simulation of traffic flow dynamics completed successfully. \u2713[0m
+[32mINFO    [0m [34m[root][0m Proceeding with post-simulation steps...[0m
+[32mINFO    [0m [34m[root][0m Post-simulation steps completed successfully. \u2713[0m
+[32mINFO    [0m [34m[root][0m Simulation completed in 56.54 seconds.[0m
+[32mINFO    [0m [34m[root][0m Setting up the macroscopic solver...[0m
+[32mINFO    [0m [34m[root][0m Starting the setup process for the macroscopic solver...[0m
+[32mINFO    [0m [34m[root][0m Pre-initializing MPC with initial conditions: {<O1: MainstreamOrigin>: {'v_ctrl': inf}}[0m
+[32mINFO    [0m [34m[root][0m 
+1. Pre-initialization of the macroscopic solver completed successfully. \u2713[0m
+[32mINFO    [0m [34m[root][0m Proceeding with the initialization of the MPC solver and related components...[0m
+[32mINFO    [0m [34m[root][0m MPC solver initialization completed successfully. \u2713[0m
+[32mINFO    [0m [34m[root][0m 
+2. Proceeding with the initialization of base states, control states, constraints, disturbances, objective function, non-linear dynamics, and solver...[0m
+[32mINFO    [0m [34m[root][0m Base states initialization completed successfully. \u2713[0m
+[32mINFO    [0m [34m[root][0m 
+3. Proceeding with the initialization of control states...[0m
+[32mINFO    [0m [34m[root][0m Control states initialization completed successfully. \u2713[0m
+[32mINFO    [0m [34m[root][0m 
+4. Proceeding with the initialization of constraints...[0m
+[32mINFO    [0m [34m[root][0m Constraints initialization completed successfully. \u2713[0m
+[32mINFO    [0m [34m[root][0m 
+5. Proceeding with the initialization of disturbances...[0m
+[32mINFO    [0m [34m[root][0m Disturbances initialization completed successfully. \u2713[0m
+[32mINFO    [0m [34m[root][0m 
+6. Proceeding with the initialization of the objective function...[0m
+[32mINFO    [0m [34m[root][0m Objective function initialization completed successfully. \u2713[0m
+[32mINFO    [0m [34m[root][0m 
+7. Proceeding with the initialization of non-linear dynamics...[0m
+[32mINFO    [0m [34m[root][0m Network element 'L1' has 1 actions: {'v_ctrl': SX([v_ctrl_L1_0, v_ctrl_L1_1, v_ctrl_L1_2, v_ctrl_L1_3])}[0m
+[32mINFO    [0m [34m[root][0m Network element 'O1' has 1 actions: {'v_ctrl': inf}[0m
+[32mINFO    [0m [34m[root][0m Network element 'O2' has 1 actions: {'r': SX(r_O2)}[0m
+[32mINFO    [0m [34m[root][0m Non-linear dynamics initialization completed successfully. \u2713[0m
+[32mINFO    [0m [34m[root][0m 
+8. Proceeding with the initialization of the solver...[0m
+[32mINFO    [0m [34m[root][0m Solver initialization completed successfully. \u2713[0m
+[32mINFO    [0m [34m[root][0m All components of the macroscopic solver have been initialized successfully. \u2713[0m
+[32mINFO    [0m [34m[root][0m Post-initialization of the macroscopic solver completed successfully. \u2713[0m
+[32mINFO    [0m [34m[root][0m Macroscopic solver setup completed successfully. \u2713 Solver ID: MpcCoordinatedSimulation-42dd5292-7543-46ae-a0ea-53918acb123c[0m
+[32mINFO    [0m [34m[root][0m 
+Starting the simulation process...[0m
+[32mINFO    [0m [34m[root][0m Solver setup verified. Proceeding with pre-simulation steps...[0m
+[32mINFO    [0m [34m[root][0m Pre-simulation steps completed successfully. \u2713[0m
+[32mINFO    [0m [34m[root][0m Proceeding with the simulation of traffic flow dynamics over time...[0m
+[32mINFO    [0m [34m[root][0m Network element 'L1' has 1 actions: {'v_ctrl': SX([v_ctrl_L1_0, v_ctrl_L1_1, v_ctrl_L1_2, v_ctrl_L1_3])}[0m
+[32mINFO    [0m [34m[root][0m Network element 'O1' has 1 actions: {'v_ctrl': inf}[0m
+[32mINFO    [0m [34m[root][0m Network element 'O2' has 1 actions: {'r': SX(r_O2)}[0m
+CasADi - 2026-10-07 21:59:09 WARNING("solver_ipopt_Nlp5:nlp_jac_g failed: NaN detected for output jac_g_x, at nonzero index 2744 (row 20, col 602).") [.../casadi/core/oracle_function.cpp:408]
+CasADi - 2026-10-07 21:59:09 WARNING("solver_ipopt_Nlp5:nlp_jac_g failed: NaN detected for output jac_g_x, at nonzero index 2744 (row 20, col 602).") [.../casadi/core/oracle_function.cpp:408]
+[32mINFO    [0m [34m[root][0m step 0 of 900[0m
+[32mINFO    [0m [34m[root][0m step 100 of 900[0m
+[32mINFO    [0m [34m[root][0m step 200 of 900[0m
+[32mINFO    [0m [34m[root][0m step 300 of 900[0m
+[32mINFO    [0m [34m[root][0m step 400 of 900[0m
+[32mINFO    [0m [34m[root][0m step 500 of 900[0m
+[32mINFO    [0m [34m[root][0m step 600 of 900[0m
+[32mINFO    [0m [34m[root][0m step 700 of 900[0m
+[32mINFO    [0m [34m[root][0m step 800 of 900[0m
+[32mINFO    [0m [34m[root][0m Simulation of traffic flow dynamics completed successfully. \u2713[0m
+[32mINFO    [0m [34m[root][0m Proceeding with post-simulation steps...[0m
+[32mINFO    [0m [34m[root][0m Post-simulation steps completed successfully. \u2713[0m
+[32mINFO    [0m [34m[root][0m Simulation completed in 57.89 seconds.[0m
+[32mINFO    [0m [34m[root][0m Setting up the macroscopic solver...[0m
+[32mINFO    [0m [34m[root][0m Starting the setup process for the macroscopic solver...[0m
+[32mINFO    [0m [34m[root][0m Pre-initializing MPC with initial conditions: {<O1: MainstreamOrigin>: {'v_ctrl': inf}}[0m
+[32mINFO    [0m [34m[root][0m 
+1. Pre-initialization of the macroscopic solver completed successfully. \u2713[0m
+[32mINFO    [0m [34m[root][0m Proceeding with the initialization of the MPC solver and related components...[0m
+[32mINFO    [0m [34m[root][0m MPC solver initialization completed successfully. \u2713[0m
+[32mINFO    [0m [34m[root][0m 
+2. Proceeding with the initialization of base states, control states, constraints, disturbances, objective function, non-linear dynamics, and solver...[0m
+[32mINFO    [0m [34m[root][0m Base states initialization completed successfully. \u2713[0m
+[32mINFO    [0m [34m[root][0m 
+3. Proceeding with the initialization of control states...[0m
+[32mINFO    [0m [34m[root][0m Control states initialization completed successfully. \u2713[0m
+[32mINFO    [0m [34m[root][0m 
+4. Proceeding with the initialization of constraints...[0m
+[32mINFO    [0m [34m[root][0m Constraints initialization completed successfully. \u2713[0m
+[32mINFO    [0m [34m[root][0m 
+5. Proceeding with the initialization of disturbances...[0m
+[32mINFO    [0m [34m[root][0m Disturbances initialization completed successfully. \u2713[0m
+[32mINFO    [0m [34m[root][0m 
+6. Proceeding with the initialization of the objective function...[0m
+[32mINFO    [0m [34m[root][0m Objective function initialization completed successfully. \u2713[0m
+[32mINFO    [0m [34m[root][0m 
+7. Proceeding with the initialization of non-linear dynamics...[0m
+[32mINFO    [0m [34m[root][0m Network element 'L1' has 1 actions: {'v_ctrl': SX([v_ctrl_L1_0, v_ctrl_L1_1, v_ctrl_L1_2, v_ctrl_L1_3])}[0m
+[32mINFO    [0m [34m[root][0m Network element 'O1' has 1 actions: {'v_ctrl': inf}[0m
+[32mINFO    [0m [34m[root][0m Network element 'O2' has 1 actions: {'r': SX(r_O2)}[0m
+[32mINFO    [0m [34m[root][0m Non-linear dynamics initialization completed successfully. \u2713[0m
+[32mINFO    [0m [34m[root][0m 
+8. Proceeding with the initialization of the solver...[0m
+[32mINFO    [0m [34m[root][0m Solver initialization completed successfully. \u2713[0m
+[32mINFO    [0m [34m[root][0m All components of the macroscopic solver have been initialized successfully. \u2713[0m
+[32mINFO    [0m [34m[root][0m Post-initialization of the macroscopic solver completed successfully. \u2713[0m
+[32mINFO    [0m [34m[root][0m Macroscopic solver setup completed successfully. \u2713 Solver ID: MpcCoordinatedSimulation-9abec5ff-61f9-4f78-8891-db0bf650d91a[0m
+[32mINFO    [0m [34m[root][0m 
+Starting the simulation process...[0m
+[32mINFO    [0m [34m[root][0m Solver setup verified. Proceeding with pre-simulation steps...[0m
+[32mINFO    [0m [34m[root][0m Pre-simulation steps completed successfully. \u2713[0m
+[32mINFO    [0m [34m[root][0m Proceeding with the simulation of traffic flow dynamics over time...[0m
+[32mINFO    [0m [34m[root][0m Network element 'L1' has 1 actions: {'v_ctrl': SX([v_ctrl_L1_0, v_ctrl_L1_1, v_ctrl_L1_2, v_ctrl_L1_3])}[0m
+[32mINFO    [0m [34m[root][0m Network element 'O1' has 1 actions: {'v_ctrl': inf}[0m
+[32mINFO    [0m [34m[root][0m Network element 'O2' has 1 actions: {'r': SX(r_O2)}[0m
+CasADi - 2026-10-07 22:00:07 WARNING("solver_ipopt_Nlp6:nlp_jac_g failed: NaN detected for output jac_g_x, at nonzero index 2744 (row 20, col 602).") [.../casadi/core/oracle_function.cpp:408]
+CasADi - 2026-10-07 22:00:07 WARNING("solver_ipopt_Nlp6:nlp_jac_g failed: NaN detected for output jac_g_x, at nonzero index 2744 (row 20, col 602).") [.../casadi/core/oracle_function.cpp:408]
+[32mINFO    [0m [34m[root][0m step 0 of 900[0m
+[32mINFO    [0m [34m[root][0m step 100 of 900[0m
+[32mINFO    [0m [34m[root][0m step 200 of 900[0m
+[32mINFO    [0m [34m[root][0m step 300 of 900[0m
+[32mINFO    [0m [34m[root][0m step 400 of 900[0m
+[32mINFO    [0m [34m[root][0m step 500 of 900[0m
+[32mINFO    [0m [34m[root][0m step 600 of 900[0m
+[32mINFO    [0m [34m[root][0m step 700 of 900[0m
+[32mINFO    [0m [34m[root][0m step 800 of 900[0m
+[32mINFO    [0m [34m[root][0m Simulation of traffic flow dynamics completed successfully. \u2713[0m
+[32mINFO    [0m [34m[root][0m Proceeding with post-simulation steps...[0m
+[32mINFO    [0m [34m[root][0m Post-simulation steps completed successfully. \u2713[0m
+[32mINFO    [0m [34m[root][0m Simulation completed in 41.31 seconds.[0m
+[32mINFO    [0m [34m[root][0m Setting up the macroscopic solver...[0m
+[32mINFO    [0m [34m[root][0m Starting the setup process for the macroscopic solver...[0m
+[32mINFO    [0m [34m[root][0m Pre-initializing MPC with initial conditions: {<O1: MainstreamOrigin>: {'v_ctrl': inf}}[0m
+[32mINFO    [0m [34m[root][0m 
+1. Pre-initialization of the macroscopic solver completed successfully. \u2713[0m
+[32mINFO    [0m [34m[root][0m Proceeding with the initialization of the MPC solver and related components...[0m
+[32mINFO    [0m [34m[root][0m MPC solver initialization completed successfully. \u2713[0m
+[32mINFO    [0m [34m[root][0m 
+2. Proceeding with the initialization of base states, control states, constraints, disturbances, objective function, non-linear dynamics, and solver...[0m
+[32mINFO    [0m [34m[root][0m Base states initialization completed successfully. \u2713[0m
+[32mINFO    [0m [34m[root][0m 
+3. Proceeding with the initialization of control states...[0m
+[32mINFO    [0m [34m[root][0m Control states initialization completed successfully. \u2713[0m
+[32mINFO    [0m [34m[root][0m 
+4. Proceeding with the initialization of constraints...[0m
+[32mINFO    [0m [34m[root][0m Constraints initialization completed successfully. \u2713[0m
+[32mINFO    [0m [34m[root][0m 
+5. Proceeding with the initialization of disturbances...[0m
+[32mINFO    [0m [34m[root][0m Disturbances initialization completed successfully. \u2713[0m
+[32mINFO    [0m [34m[root][0m 
+6. Proceeding with the initialization of the objective function...[0m
+[32mINFO    [0m [34m[root][0m Objective function initialization completed successfully. \u2713[0m
+[32mINFO    [0m [34m[root][0m 
+7. Proceeding with the initialization of non-linear dynamics...[0m
+[32mINFO    [0m [34m[root][0m Network element 'L1' has 1 actions: {'v_ctrl': SX([v_ctrl_L1_0, v_ctrl_L1_1, v_ctrl_L1_2, v_ctrl_L1_3])}[0m
+[32mINFO    [0m [34m[root][0m Network element 'O1' has 1 actions: {'v_ctrl': inf}[0m
+[32mINFO    [0m [34m[root][0m Network element 'O2' has 1 actions: {'r': SX(r_O2)}[0m
+[32mINFO    [0m [34m[root][0m Non-linear dynamics initialization completed successfully. \u2713[0m
+[32mINFO    [0m [34m[root][0m 
+8. Proceeding with the initialization of the solver...[0m
+[32mINFO    [0m [34m[root][0m Solver initialization completed successfully. \u2713[0m
+[32mINFO    [0m [34m[root][0m All components of the macroscopic solver have been initialized successfully. \u2713[0m
+[32mINFO    [0m [34m[root][0m Post-initialization of the macroscopic solver completed successfully. \u2713[0m
+[32mINFO    [0m [34m[root][0m Macroscopic solver setup completed successfully. \u2713 Solver ID: MpcCoordinatedSimulation-2c4e79e5-d385-49e8-85b1-8ce85c9c892a[0m
+[32mINFO    [0m [34m[root][0m 
+Starting the simulation process...[0m
+[32mINFO    [0m [34m[root][0m Solver setup verified. Proceeding with pre-simulation steps...[0m
+[32mINFO    [0m [34m[root][0m Pre-simulation steps completed successfully. \u2713[0m
+[32mINFO    [0m [34m[root][0m Proceeding with the simulation of traffic flow dynamics over time...[0m
+[32mINFO    [0m [34m[root][0m Network element 'L1' has 1 actions: {'v_ctrl': SX([v_ctrl_L1_0, v_ctrl_L1_1, v_ctrl_L1_2, v_ctrl_L1_3])}[0m
+[32mINFO    [0m [34m[root][0m Network element 'O1' has 1 actions: {'v_ctrl': inf}[0m
+[32mINFO    [0m [34m[root][0m Network element 'O2' has 1 actions: {'r': SX(r_O2)}[0m
+CasADi - 2026-10-07 22:00:49 WARNING("solver_ipopt_Nlp7:nlp_jac_g failed: NaN detected for output jac_g_x, at nonzero index 2744 (row 20, col 602).") [.../casadi/core/oracle_function.cpp:408]
+CasADi - 2026-10-07 22:00:49 WARNING("solver_ipopt_Nlp7:nlp_jac_g failed: NaN detected for output jac_g_x, at nonzero index 2744 (row 20, col 602).") [.../casadi/core/oracle_function.cpp:408]
+[32mINFO    [0m [34m[root][0m step 0 of 900[0m
+[32mINFO    [0m [34m[root][0m step 100 of 900[0m
+[32mINFO    [0m [34m[root][0m step 200 of 900[0m
+[32mINFO    [0m [34m[root][0m step 300 of 900[0m
+[32mINFO    [0m [34m[root][0m step 400 of 900[0m
+[32mINFO    [0m [34m[root][0m step 500 of 900[0m
+[32mINFO    [0m [34m[root][0m step 600 of 900[0m
+[32mINFO    [0m [34m[root][0m step 700 of 900[0m
+[32mINFO    [0m [34m[root][0m step 800 of 900[0m
+[32mINFO    [0m [34m[root][0m Simulation of traffic flow dynamics completed successfully. \u2713[0m
+[32mINFO    [0m [34m[root][0m Proceeding with post-simulation steps...[0m
+[32mINFO    [0m [34m[root][0m Post-simulation steps completed successfully. \u2713[0m
+[32mINFO    [0m [34m[root][0m Simulation completed in 45.86 seconds.[0m

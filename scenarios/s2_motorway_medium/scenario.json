@@ -135,6 +135,46 @@
         "solver_pool": {
           "rebuild_strategy": "pool"
         }
+      },
+      "v2": {
+        "agent": {
+          "learning_rate": 0.1,
+          "discount_factor": 0.95,
+          "epsilon": 1.0,
+          "epsilon_decay": 0.98,
+          "epsilon_min": 0.01,
+          "epsilon_decay_enabled": true,
+          "epsilon_decay_mode": "per_episode"
+        },
+        "state": {
+          "features": [
+            {
+              "name": "mean_critical_density",
+              "source": "mean_density",
+              "segment_indices": [3, 4],
+              "thresholds": [32.3, 45.0],
+              "labels": ["low", "medium", "high"]
+            },
+            {
+              "name": "demand_ratio",
+              "source": "demand_ratio",
+              "thresholds": [1.1, 1.4],
+              "labels": ["low", "medium", "high"]
+            }
+          ]
+        },
+        "actions": {
+          "alpha_values": [0.0, 0.017, 0.032, 0.056, 0.1]
+        },
+        "reward": {
+          "components": {
+            "tts": { "weight": 1.0, "scale": 20.0 },
+            "collisions": { "weight": 1.0, "scale": 1.0, "clip": 3 }
+          }
+        },
+        "solver_pool": {
+          "rebuild_strategy": "pool"
+        }
       }
     }
   }

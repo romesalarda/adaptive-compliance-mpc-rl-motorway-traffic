@@ -273,6 +273,7 @@ def run_single(
     learning: bool = True,
     pool_name: str | None = None,
     verbose_descriptor: bool = False,
+    fixed_alpha: float | None = None,
 
 ) -> "MicroSimulationResults":
     """
@@ -292,7 +293,10 @@ def run_single(
     scenario = Scenario(scenario_name)
     micro_cfg = scenario.micro_config
 
-    macro_env = scenario.build_environment(control_type)
+    if fixed_alpha is not None:
+        macro_env = scenario.build_environment_with_alpha(control_type, fixed_alpha)
+    else:
+        macro_env = scenario.build_environment(control_type)
     micro_env = scenario.build_micro_environment()
 
     if not use_rl:
@@ -697,6 +701,12 @@ def main() -> None:
         help="Run RL agent in evaluation mode (greedy, no Q-table updates)",
     )
     parser.add_argument(
+        "--alpha",
+        type=float,
+        default=None,
+        help="Fixed alpha_compliance override for non-RL runs (open-loop sweep)",
+    )
+    parser.add_argument(
         "--repeat",
         type=int,
         default=1,
@@ -770,6 +780,7 @@ def main() -> None:
                 learning=args.learning,
                 pool_name=pool_name,
                 verbose_descriptor=args.verbose_descriptor,
+                fixed_alpha=args.alpha,
             )
 
 

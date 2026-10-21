@@ -15,9 +15,9 @@ class RewardComponent(Protocol):
 @dataclass
 class TTSRewardComponent:
     """
-    Penalises increase in Total Time Spent over the solve window.
-    state_data must contain 'tts_increase' (veh·h), pre-computed by the controller.
-    Negative because we minimise TTS growth; reward is negated cost.
+    Penalises the Total Time Spent accrued over the last decision interval.
+    state_data must contain 'tts_interval' (veh?h): the time-integral of vehicles in the
+    system (mainline + ramp queues) between the previous and the current decision.
     """
 
     weight: float = 1.0
@@ -25,25 +25,26 @@ class TTSRewardComponent:
     scale: float = 1.0
 
     def calculate(self, state_data: dict) -> float:
-        tts_increase = float(state_data.get("tts_increase", 0.0))
-        # normalise by 'scale' so magnitude is comparable across scenarios with different baseline TTS
-        return -tts_increase / self.scale
+        return -float(state_data.get("tts_interval", 0.0)) / self.scale
 
 
 @dataclass
 class CollisionRewardComponent:
     """
-    Penalises collisions detected within the observation window.
-    state_data must contain 'collisions_in_window' (int), pre-computed by the controller.
+    Penalises collisions that occurred during the last decision interval.
+    state_data must contain 'collisions_interval' (int), counted every simulation step.
+    The count is clipped at 'clip' so rare pile-ups cannot swamp the TTS term.
     """
 
     weight: float = 0.5
     name: str = "collisions"
     scale: float = 1.0
+    clip: float | None = None
 
     def calculate(self, state_data: dict) -> float:
-        collisions = float(state_data.get("collisions_in_window", 0))
-        # normalise by 'scale' so magnitude is comparable to other reward components
+        collisions = float(state_data.get("collisions_interval", 0))
+        if self.clip is not None:
+            collisions = min(collisions, self.clip)
         return -collisions / self.scale
 
 
@@ -62,8 +63,10 @@ def reward_from_config(cfg: dict) -> "WeightedRewardCalculator":
         klass = _registry[comp_name]
         weight = float(comp_cfg.get("weight", 1.0))
         kwargs = {"weight": weight}
-        if "scale" in comp_cfg and klass in (TTSRewardComponent, CollisionRewardComponent):
+        if "scale" in comp_cfg:
             kwargs["scale"] = float(comp_cfg["scale"])
+        if "clip" in comp_cfg and klass is CollisionRewardComponent:
+            kwargs["clip"] = float(comp_cfg["clip"])
         components.append(klass(**kwargs))
 
     return WeightedRewardCalculator(components)
